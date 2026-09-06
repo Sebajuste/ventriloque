@@ -21,10 +21,10 @@ const ENGINE_EXE: &[u8] = include_bytes!("../binaries/pocket-tts-x86_64-pc-windo
 const ONNX_RUNTIME: &[u8] = include_bytes!("../binaries/onnxruntime.dll");
 // Le fabricant : il porte CascLib et le moteur de script, et fait tourner les recettes des
 // paquets hors de ce processus. Voir `packs::build`.
-const BUILDER_EXE: &[u8] = include_bytes!("../binaries/fabriquer.exe");
+const BUILDER_EXE: &[u8] = include_bytes!("../binaries/pack-builder.exe");
 
 const ENGINE_NAME: &str = "pocket-tts.exe";
-const BUILDER_NAME: &str = "fabriquer.exe";
+const BUILDER_NAME: &str = "pack-builder.exe";
 const RUNTIME_NAME: &str = "onnxruntime.dll";
 
 // Ecrit seulement si le fichier manque ou n'a pas la bonne taille. La taille suffit comme

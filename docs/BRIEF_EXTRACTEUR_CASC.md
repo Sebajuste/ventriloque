@@ -11,7 +11,7 @@ Un outil, lancé hors du jeu, qui tire des **répliques d'un personnage** de la 
 joueur et les dépose dans un dossier que Ventriloque sait consommer.
 
 ```
-outils\extraire-casc\        l'extracteur
+tools\extract-casc\        l'extracteur
     README.md                ce qu'il fait, comment on le lance, ce qui a été mesuré
 ```
 
@@ -103,7 +103,7 @@ disposition réelle est :
 
 Le doublage est bien une branche par langue, distincte des sous-titres : `frfr.sc2assets` porte
 la voix, `frfr.sc2data` le texte. Le locuteur est le jeton qui précède le numéro. Le détail est
-dans `outils\extraire-casc\README.md`, qui porte aussi la jointure sous-titre ↔ prise.
+dans `tools\extract-casc\README.md`, qui porte aussi la jointure sous-titre ↔ prise.
 
 ---
 

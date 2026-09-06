@@ -1,6 +1,6 @@
 // La fabrication : faire tourner le script d'un paquet sur une copie installee d'un jeu.
 //
-// LE SCRIPT NE TOURNE PAS ICI. Il tourne dans `fabriquer.exe`, un processus separe, lie a notre
+// LE SCRIPT NE TOURNE PAS ICI. Il tourne dans `pack-builder.exe`, un processus separe, lie a notre
 // vie par un job object comme le moteur de parole. Deux codes qui ne viennent pas de
 // l'application -- le C++ de CascLib et le script du paquet -- restent ainsi dehors : ils ne
 // peuvent pas lire notre memoire, et se tuent d'un geste.
@@ -31,11 +31,11 @@ pub struct BuildReport {
 
 /// Ce que le fils a le droit de poser, ou le chercher, et ou le mettre.
 ///
-/// DEUX NOMS DE SOURCE PAR DESTINATION, parce que le fabricant est un binaire a part : il se
-/// rebatit et se redeploie a son propre rythme, et celui qui est deja pose sur une machine ecrit
-/// encore dans `voix\` et `pnj\`. Chercher les deux coute une lecture de dossier absent et
-/// evite qu'une fabrication rende « rien pose d'utilisable » sur une simple difference de
-/// vocabulaire.
+/// DEUX NOMS DE SOURCE PAR DESTINATION. Le fabricant est embarque dans l'executable, donc les
+/// deux avancent ensemble -- mais un `engine\` deja rempli garde le binaire d'avant tant que sa
+/// taille n'a pas change, et celui-la ecrit dans `voix\` et `pnj\`. Chercher les deux coute une
+/// lecture de dossier absent et evite qu'une fabrication rende « rien pose d'utilisable » sur
+/// une simple difference de vocabulaire.
 const HARVEST: [(&[&str], &str, &str); 2] = [
     (&[paths::VOICES, "voix"], ".wav", paths::VOICES),
     (&[paths::CHARACTERS, "pnj"], ".json", paths::CHARACTERS),
@@ -163,11 +163,9 @@ fn run_builder(
 ) -> Result<Vec<String>> {
     let mut command = Command::new(builder);
     command
-        // LES DRAPEAUX SONT CEUX DU FABRICANT, et il est un binaire a part : le renommer ici
-        // n'aurait renomme que l'appel. Ils changeront quand le fabricant changera.
         .arg("--script").arg(script)
-        .arg("--jeu").arg(game)
-        .arg("--sortie").arg(work)
+        .arg("--game").arg(game)
+        .arg("--out").arg(work)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 

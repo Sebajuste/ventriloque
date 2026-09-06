@@ -7,17 +7,16 @@ dist/
 # Sans barre oblique de tete : n'importe ou dans l'arbre. Il y a maintenant un `package.json` a
 # la racine en plus de celui de `ui`, et une regle par emplacement en aurait manque un.
 node_modules/
-outils/monter-voix/target/
-outils/fabriquer/target/
-outils/extraire-casc/obj/
-outils/extraire-casc/*.exe
+tools/target/
+tools/extract-casc/obj/
+tools/extract-casc/*.exe
 
-# Le fabricant se rebatit depuis `outils/fabriquer` a chaque compilation : le versionner
+# Le fabricant se rebatit depuis `tools/pack-builder` a chaque compilation : le versionner
 # ferait entrer 4,5 Mo de binaire dans l'historique a chaque build.
-src-tauri/binaries/fabriquer.exe
-outils/__pycache__/
+src-tauri/binaries/pack-builder.exe
+tools/__pycache__/
 
-# Les recettes INSTALLEES, posees la par un paquet. Les sources sont dans `outils/recettes/`.
+# Les recettes INSTALLEES, posees la par un paquet. Les sources sont dans `tools/recipes/`.
 /recipes/
 
 # Ce qui ne se publie pas : un demi-gigaoctet de modeles sous liste d'autorisation, les
@@ -40,4 +39,4 @@ diag.log
 
 # CascLib est un depot tiers clone sur place — il porte 91 Mo de `listfile`. Il se recupere, il
 # ne se versionne pas ici. Le `build.rs` du fabricant dit comment le cloner s'il manque.
-outils/fabriquer/vendor/
+tools/pack-builder/vendor/

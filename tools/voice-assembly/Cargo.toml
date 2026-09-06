@@ -1,0 +1,8 @@
+[package]
+name = "voice-assembly"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+hound.workspace = true
+symphonia.workspace = true

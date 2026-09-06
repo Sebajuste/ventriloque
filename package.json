@@ -8,7 +8,7 @@
     "build": "tauri build --no-bundle",
     "build:rapide": "set VENTRILOQUE_SANS_TESTS=1 && tauri build --no-bundle",
     "build:installateurs": "tauri build",
-    "postbuild": "node outils/deposer.mjs",
+    "postbuild": "node tools/deploy.mjs",
     "contrat": "cargo test --manifest-path src-tauri/Cargo.toml bindings",
     "test": "npm --prefix ui run test && cargo test --manifest-path src-tauri/Cargo.toml",
     "verifier": "npm --prefix ui run verifier",

@@ -38,7 +38,7 @@ pub fn contract() -> tauri_specta::Builder<tauri::Wry> {
 
 // Le contrat, ecrit.
 //
-// C'EST UN TEST ET PAS UN SCRIPT, parce que `cargo test` tourne deja dans `outils/preparer.ps1`,
+// C'EST UN TEST ET PAS UN SCRIPT, parce que `cargo test` tourne deja dans `tools/prepare.ps1`,
 // avant la compilation du binaire : le lien ne peut pas etre oublie. Le fichier produit est
 // versionne, et l'integration echoue si `git diff` le trouve modifie -- ce qui veut alors dire
 // que quelqu'un a change une commande sans regenerer.

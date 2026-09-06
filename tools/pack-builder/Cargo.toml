@@ -1,0 +1,17 @@
+[package]
+name = "pack-builder"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "pack-builder"
+path = "src/main.rs"
+
+[dependencies]
+# Sans `sync` : la fabrication tient dans un seul fil, et la poignee du stockage n'est pas
+# partageable entre fils. L'exiger obligerait a mentir sur `Sync`.
+rhai = { version = "1.24.1", default-features = false, features = ["std", "only_i64"] }
+voice-assembly.workspace = true
+
+[build-dependencies]
+cc = "1.4.5"

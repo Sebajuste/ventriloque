@@ -1,0 +1,24 @@
+# Les outils de fabrication, en un seul espace de travail.
+#
+# UNE SEULE RESOLUTION DE DEPENDANCES pour trois caisses qui partagent `hound` et `symphonia`,
+# une seule cible de compilation, un seul verrou. Avant, chaque outil avait les siens, et les
+# deux binaires avaient fini par embarquer deux copies divergentes du meme code de montage.
+#
+# Ce qui n'est PAS ici : `src-tauri`, qui reste sa propre caisse. L'application ne partage aucune
+# dependance avec les outils -- elle ne connait d'eux qu'un executable qu'elle lance.
+
+[workspace]
+resolver = "3"
+members = ["voice-assembly", "pack-builder", "assemble-voice"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+hound = "3.5.1"
+symphonia = { version = "0.5.5", default-features = false, features = ["ogg", "vorbis"] }
+voice-assembly = { path = "voice-assembly" }
+
+[profile.release]
+opt-level = 2

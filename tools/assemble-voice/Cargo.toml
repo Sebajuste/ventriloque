@@ -1,0 +1,11 @@
+[package]
+name = "assemble-voice"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "assemble-voice"
+path = "src/main.rs"
+
+[dependencies]
+voice-assembly.workspace = true
