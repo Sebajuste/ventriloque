@@ -48,15 +48,28 @@ struct App {
     port: u16,
 }
 
-#[derive(Serialize)]
+// D'OU VIENT LA VOIX -- un vrai type, et pas une chaine libre.
+//
+// L'interface s'appuie dessus pour dire ce qu'elle affiche, et une chaine se serait exportee en
+// `string` : une faute de frappe cote Rust n'aurait rien casse a la compilation, elle aurait
+// juste affiche une etiquette vide en seance. En enum, le contrat porte les deux seules valeurs
+// possibles jusqu'a TypeScript.
+#[derive(Serialize, specta::Type, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+enum Palier {
+    Clone,
+    Catalogue,
+}
+
+#[derive(Serialize, specta::Type)]
 struct Voix {
     nom: String,
     // Ce qu'on envoie au moteur : `judy.wav` pour un clone, `jean` pour une voix de catalogue.
     reference: String,
-    palier: &'static str,
+    palier: Palier,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 struct Etat {
     pret: bool,
     fiches: Vec<Fiche>,
@@ -66,23 +79,29 @@ struct Etat {
     modeles: String,
     voix: Vec<Voix>,
     peripheriques: Vec<String>,
+    // RENDU EN `number`, PAS EN `bigint`. Specta refuse `usize` par defaut parce qu'au-dela de
+    // 2^53 un entier perdrait des chiffres en silence cote JavaScript. C'est un rang dans la
+    // liste des sorties audio de la machine : on est a quinze ordres de grandeur de la limite,
+    // et l'IPC de Tauri passe par du JSON, qui ne transporte de toute facon pas de `bigint`.
+    #[specta(type = u32)]
     peripherique: usize,
 }
 
 #[tauri::command]
+#[specta::specta]
 fn etat(app: State<App>) -> Etat {
     let mut voix: Vec<Voix> = engine::clones(&app.voix)
         .into_iter()
         .map(|f| Voix {
             nom: f.trim_end_matches(".wav").to_string(),
             reference: f,
-            palier: "clone",
+            palier: Palier::Clone,
         })
         .collect();
     voix.extend(engine::catalogue(&app.modeles).into_iter().map(|n| Voix {
         nom: n.clone(),
         reference: n,
-        palier: "catalogue",
+        palier: Palier::Catalogue,
     }));
 
     Etat {
@@ -108,6 +127,7 @@ fn etat(app: State<App>) -> Etat {
 // commande ne rend la main qu'a la fin, donc l'appelant en JavaScript peut simplement l'attendre
 // et recuperer l'erreur au passage. Le SON, lui, a commence bien avant -- des le premier morceau.
 #[tauri::command]
+#[specta::specta]
 async fn parler(app: State<'_, App>, reference: String, texte: String) -> Result<(), String> {
     let texte = texte.trim().to_string();
     if texte.is_empty() {
@@ -148,13 +168,20 @@ async fn parler(app: State<'_, App>, reference: String, texte: String) -> Result
 }
 
 #[tauri::command]
+#[specta::specta]
 fn taire(app: State<App>) {
     app.abandon.store(true, Ordering::Relaxed);
     app.sortie.ordonner(Ordre::Taire);
 }
 
+// `u32` ET PAS `usize` : c'est le type de la FRONTIERE, pas celui du calcul. Specta refuse
+// `usize` parce qu'au-dela de 2^53 un entier perdrait des chiffres en silence cote JavaScript,
+// et l'IPC de Tauri passe par du JSON, qui ne transporte pas de `bigint`. Un rang dans la liste
+// des sorties audio de la machine tient largement dans 32 bits.
 #[tauri::command]
-fn choisir_peripherique(app: State<App>, rang: usize) {
+#[specta::specta]
+fn choisir_peripherique(app: State<App>, rang: u32) {
+    let rang = rang as usize;
     *app.peripherique.lock().unwrap() = rang;
     app.sortie.ordonner(Ordre::Peripherique(rang));
 }
@@ -164,6 +191,7 @@ fn choisir_peripherique(app: State<App>, rang: usize) {
 // Le nom sert de nom de fichier. Reforger sous le meme nom est sur : le moteur invalide son
 // cache sur la date du .wav, verifie, donc la voix suivante sera bien la nouvelle.
 #[tauri::command]
+#[specta::specta]
 fn forger(
     app: State<App>,
     nom: String,
@@ -211,6 +239,7 @@ fn forger(
 // l'API JavaScript d'un plugin. Et un `<input type="file">` ne donnerait pas les chemins reels,
 // dont l'atelier a besoin pour aller lire les sons.
 #[tauri::command]
+#[specta::specta]
 fn choisir_fichiers(fenetre: tauri::Window) -> Vec<String> {
     use tauri_plugin_dialog::DialogExt;
     fenetre
@@ -225,11 +254,13 @@ fn choisir_fichiers(fenetre: tauri::Window) -> Vec<String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn ecrire_fiche(app: State<App>, fiche: Fiche, ancien: String) -> Result<Fiche, String> {
     fiches::ecrire(&app.pnj, fiche, &ancien).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
+#[specta::specta]
 fn supprimer_fiche(app: State<App>, id: String) -> Result<(), String> {
     fiches::supprimer(&app.pnj, &id).map_err(|e| e.to_string())
 }
@@ -245,6 +276,7 @@ fn supprimer_fiche(app: State<App>, id: String) -> Result<(), String> {
 // On rend le son et on le jette : c'est le chemin complet, et rien d'autre ne prouve qu'une
 // voix est prete.
 #[tauri::command]
+#[specta::specta]
 async fn prechauffer(app: State<'_, App>) -> Result<Vec<String>, String> {
     let voulues: Vec<String> = {
         let mut v: Vec<String> = fiches::toutes(&app.pnj)
@@ -303,6 +335,7 @@ fn allumer(app: &App) {
 // Installer un paquet : le zip est choisi ici, comme les sons de l'atelier, parce que la page
 // n'a pas de quoi ouvrir un selecteur de fichiers.
 #[tauri::command]
+#[specta::specta]
 fn installer_pack(app: State<App>, fenetre: tauri::Window) -> Result<String, String> {
     use tauri_plugin_dialog::DialogExt;
     let Some(zip) = fenetre.dialog().file().add_filter("paquets", &["zip"]).blocking_pick_file() else {
@@ -319,7 +352,30 @@ fn installer_pack(app: State<App>, fenetre: tauri::Window) -> Result<String, Str
     Ok(format!("{} installe : {} fichier(s)", manifeste.nom, manifeste.fichiers.len()))
 }
 
+// LE CONTRAT AVEC L'INTERFACE, DECLARE UNE FOIS.
+//
+// La liste ci-dessous ne sert pas qu'a brancher les commandes : le test `lien::ecrire` plus bas
+// la traverse pour produire `ui/src/lien.ts`, ou les noms des commandes, ceux de leurs arguments
+// et la forme de leurs retours deviennent des types TypeScript. Un champ renomme ici casse
+// desormais la compilation de l'interface, la ou il cassait la seance.
+fn contrat() -> tauri_specta::Builder<tauri::Wry> {
+    tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
+        etat,
+        parler,
+        taire,
+        choisir_peripherique,
+        forger,
+        choisir_fichiers,
+        ecrire_fiche,
+        supprimer_fiche,
+        prechauffer,
+        installer_pack
+    ])
+}
+
 fn main() {
+    let contrat = contrat();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
@@ -346,10 +402,7 @@ fn main() {
             app.manage(etat);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            etat, parler, taire, choisir_peripherique, forger, choisir_fichiers,
-            ecrire_fiche, supprimer_fiche, prechauffer, installer_pack
-        ])
+        .invoke_handler(contrat.invoke_handler())
         .build(tauri::generate_context!())
         .expect("Ventriloque n'a pas pu demarrer")
         // FERMER LA FENETRE DOIT TUER LE MOTEUR, et rien ne le fait tout seul.
@@ -387,3 +440,27 @@ fn lire_modeles(racine: &std::path::Path) -> PathBuf {
         .unwrap_or_else(|| racine.join("modeles"))
 }
 
+// Le contrat, ecrit.
+//
+// C'EST UN TEST ET PAS UN SCRIPT, parce que `cargo test` tourne deja dans `outils/build.ps1`,
+// avant la compilation du binaire : le lien ne peut pas etre oublie. Le fichier produit est
+// versionne, et l'integration echoue si `git diff` le trouve modifie -- ce qui veut alors dire
+// que quelqu'un a change une commande sans regenerer.
+#[cfg(test)]
+mod lien {
+    const PREAMBULE: &str = "// Ecrit par `cargo test` depuis les commandes de `src-tauri`.
+// NE PAS MODIFIER A LA MAIN : la prochaine execution ecrasera tout.
+//
+// Les enveloppes lisibles, avec leurs commentaires, sont dans `api.ts` -- ici il n'y a que la
+// forme exacte de ce que Rust expose.";
+
+    #[test]
+    fn ecrire() {
+        super::contrat()
+            .export(
+                specta_typescript::Typescript::default().header(PREAMBULE),
+                "../ui/src/lien.ts",
+            )
+            .expect("le lien vers l'interface n'a pas pu etre ecrit");
+    }
+}

@@ -1,52 +1,40 @@
 // Le seul endroit qui parle au Rust.
 //
-// Les commandes sont typées ici et nulle part ailleurs : un nom de commande mal orthographié ou
-// un argument oublié devient une erreur de compilation plutôt qu'une promesse rejetée à
-// l'exécution, au moment où l'on joue.
+// LES TYPES NE SONT PLUS ECRITS ICI, ILS SONT DERIVES DE `lien.ts`, que `cargo test` regenere
+// depuis les commandes de `src-tauri`. Un champ renomme cote Rust renomme le champ ici, et les
+// vues qui le lisaient ne compilent plus -- la ou avant elles compilaient tres bien et cassaient
+// en seance, sur une promesse rejetee au moment ou l'on joue.
 //
-// Les noms des champs suivent ceux que Rust sérialise — `installe_le` et pas `installeLe` —
-// parce que ces structures viennent telles quelles du disque et que les renommer ici obligerait
-// à traduire dans les deux sens pour rien.
+// Ce fichier ne garde donc que ce que Rust ne peut pas dire : les noms francais des enveloppes,
+// les commentaires qui expliquent quand une commande se resout, et `Cible`, qui n'existe que
+// dans la fenetre.
 
-import { invoke } from "@tauri-apps/api/core";
+import { commands, type Etat as EtatBrut, type Fiche as FicheBrute } from "./lien";
+import type { Manifeste as ManifesteBrut, Palier, Voix as VoixBrute } from "./lien";
 
-export type Palier = "clone" | "catalogue";
+export type { Palier };
 
-export interface Voix {
-  nom: string;
-  /** Ce qu'on envoie au moteur : `judy.wav` pour un clone, `jean` pour une voix de catalogue. */
-  reference: string;
-  palier: Palier;
-}
+/**
+ * Rend obligatoire ce que `lien.ts` declare facultatif, en profondeur.
+ *
+ * Les `#[serde(default)]` cote Rust decrivent la LECTURE d'un fichier a moitie rempli sur le
+ * disque ; ils s'exportent en `champ?:`. Mais rien de ce qui remonte dans la fenetre n'est
+ * incomplet : `serde` serialise toujours tous les champs. Sans ce passage, chaque vue devrait
+ * traiter un `undefined` qui n'arrive jamais.
+ *
+ * En profondeur parce qu'un `Etat` porte des `Fiche[]` : les rendre obligatoires en surface
+ * seulement laisserait les fiches facultatives a l'interieur.
+ */
+type Requis<T> = T extends (infer U)[]
+  ? Requis<U>[]
+  : T extends object
+    ? { [K in keyof T]-?: Requis<T[K]> }
+    : T;
 
-export interface Fiche {
-  id: string;
-  nom: string;
-  univers: string;
-  voix: string;
-  repliques: string[];
-}
-
-export interface Manifeste {
-  nom: string;
-  version: string;
-  description: string;
-  auteur: string;
-  fichiers: string[];
-  installe_le: string;
-}
-
-export interface Etat {
-  pret: boolean;
-  panne: string;
-  racine: string;
-  modeles: string;
-  voix: Voix[];
-  fiches: Fiche[];
-  packs: Manifeste[];
-  peripheriques: string[];
-  peripherique: number;
-}
+export type Voix = Requis<VoixBrute>;
+export type Fiche = Requis<FicheBrute>;
+export type Manifeste = Requis<ManifesteBrut>;
+export type Etat = Requis<EtatBrut>;
 
 /** Qui parle, en ce moment, dans le player. Une fiche et une voix brute y arrivent pareilles. */
 export interface Cible {
@@ -56,35 +44,53 @@ export interface Cible {
   repliques: string[];
 }
 
-export const lireEtat = () => invoke<Etat>("etat");
+/**
+ * Rend a l'appelant la promesse rejetee qu'il attend.
+ *
+ * tauri-specta rend les `Result` de Rust en `{ status: "ok" | "error" }` plutot qu'en promesse
+ * rejetee. C'est plus sur en soi, mais toutes les vues sont ecrites autour d'un `try`/`catch`,
+ * et les convertir aurait change leur code sans rien apporter : la conversion tient en trois
+ * lignes, ici, une fois.
+ */
+type Reponse<T, E> = { status: "ok"; data: T } | { status: "error"; error: E };
+
+const deballer = async <T, E>(reponse: Promise<Reponse<T, E>>): Promise<T> => {
+  const r = await reponse;
+  if (r.status === "error") throw r.error;
+  return r.data;
+};
+
+export const lireEtat = () => commands.etat() as Promise<Etat>;
 
 /**
- * Ne se résout que lorsque la réplique est SORTIE DU HAUT-PARLEUR, et pas quand son calcul est
- * fini : le moteur fabrique environ trois fois plus vite qu'on n'écoute. Le son, lui, commence
- * ~150 ms après l'appel.
+ * Ne se resout que lorsque la replique est SORTIE DU HAUT-PARLEUR, et pas quand son calcul est
+ * fini : le moteur fabrique environ trois fois plus vite qu'on n'ecoute. Le son, lui, commence
+ * ~150 ms apres l'appel.
  */
-export const parler = (reference: string, texte: string) =>
-  invoke<void>("parler", { reference, texte });
+export const parler = async (reference: string, texte: string): Promise<void> => {
+  await deballer(commands.parler(reference, texte));
+};
 
-export const taire = () => invoke<void>("taire");
+export const taire = () => commands.taire();
 
-export const choisirPeripherique = (rang: number) =>
-  invoke<void>("choisir_peripherique", { rang });
+export const choisirPeripherique = (rang: number) => commands.choisirPeripherique(rang);
 
-export const choisirFichiers = () => invoke<string[]>("choisir_fichiers");
+export const choisirFichiers = () => commands.choisirFichiers();
 
 export const forger = (nom: string, fichiers: string[], pitch: number, formants: number) =>
-  invoke<string>("forger", { nom, fichiers, pitch, formants });
+  deballer(commands.forger(nom, fichiers, pitch, formants));
 
 /** `ancien` porte l'identifiant d'avant, pour qu'un renommage ne laisse pas de doublon. */
 export const ecrireFiche = (fiche: Fiche, ancien: string) =>
-  invoke<Fiche>("ecrire_fiche", { fiche, ancien });
+  deballer(commands.ecrireFiche(fiche, ancien)) as Promise<Fiche>;
 
-export const supprimerFiche = (id: string) => invoke<void>("supprimer_fiche", { id });
+export const supprimerFiche = async (id: string): Promise<void> => {
+  await deballer(commands.supprimerFiche(id));
+};
 
-export const prechauffer = () => invoke<string[]>("prechauffer");
+export const prechauffer = () => deballer(commands.prechauffer());
 
-export const installerPack = () => invoke<string>("installer_pack");
+export const installerPack = () => deballer(commands.installerPack());
 
-/** Ce que Rust renvoie en cas d'erreur est une chaîne ; le reste est un imprévu. */
+/** Ce que Rust renvoie en cas d'erreur est une chaine ; le reste est un imprevu. */
 export const enClair = (e: unknown) => (typeof e === "string" ? e : String(e));

@@ -24,7 +24,7 @@ use std::path::{Component, Path, PathBuf};
 // Les seuls dossiers qu'un paquet peut remplir.
 const ACCUEIL: [&str; 3] = ["voix", "pnj", "modeles"];
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, specta::Type)]
 pub struct Manifeste {
     pub nom: String,
     #[serde(default)]

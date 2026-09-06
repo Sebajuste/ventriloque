@@ -28,13 +28,31 @@ if ($ouverts.Count -gt 0) {
     throw "Ventriloque tourne (PID $pids) et verrouille son exécutable. Ferme la fenêtre, puis relance."
 }
 
-Write-Output "== interface (typescript + vite) =="
+# LE LIEN D'ABORD, AVANT DE BÂTIR L'INTERFACE CONTRE LUI.
+#
+# `ui\src\lien.ts` porte les commandes de Rust et la forme de leurs retours ; il est écrit par
+# `cargo test lien`. Le regénérer après avoir bâti l'interface ne servirait à rien : elle aurait
+# déjà compilé contre la version d'avant. Ce test-là tourne donc même avec -SansTests, parce que
+# ce n'est pas une vérification, c'est une étape de construction.
+Write-Output "== lien rust <-> interface =="
+cargo test --manifest-path src-tauri\Cargo.toml lien
+if ($LASTEXITCODE -ne 0) { throw "le lien vers l'interface n'a pas pu être écrit" }
+
+# Le lien est versionné : s'il bouge ici, c'est que quelqu'un a touché à une commande sans le
+# regénérer, et que ce qui a été relu n'est pas ce qui va tourner.
+$derive = git status --porcelain -- ui/src/lien.ts 2>$null
+if ($LASTEXITCODE -eq 0 -and $derive) {
+    throw "ui\src\lien.ts a changé : une commande Rust a bougé sans que le lien soit regénéré. Relis le diff, puis commite-le."
+}
+
+Write-Output ""
+Write-Output "== interface (typescript + tests + vite) =="
 npm --prefix ui run build
 if ($LASTEXITCODE -ne 0) { throw "la construction de l'interface a échoué" }
 
 if (-not $SansTests) {
     Write-Output ""
-    Write-Output "== tests =="
+    Write-Output "== tests rust =="
     cargo test --release --manifest-path src-tauri\Cargo.toml
     if ($LASTEXITCODE -ne 0) { throw "des tests échouent" }
 }
