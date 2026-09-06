@@ -1,29 +1,27 @@
-// La fenêtre : un en-tête, un onglet à la fois.
+// La fenêtre : un en-tête, et la page en cours dessous.
 //
-// LES VUES NE SE CACHENT PAS, ELLES N'EXISTENT PAS. La version précédente posait `hidden` sur
-// chaque vue, et une règle `main { display: flex }` l'emportait sur le `display: none` de
-// l'attribut — les quatre pages s'empilaient donc sur une seule. Ici l'onglet inactif n'est pas
-// rendu du tout : il n'y a plus de règle capable de le ramener.
+// CE FICHIER NE CHOISIT PLUS LA VUE, IL LA REÇOIT. Les quatre pages sont des routes déclarées
+// dans `routes.tsx` ; il ne reste ici que ce qui les entoure et ce qu'elles se partagent.
+//
+// LES VUES NE SE CACHENT PAS, ELLES N'EXISTENT PAS. La version d'avant le routeur posait
+// `hidden` sur chaque vue, et une règle `main { display: flex }` l'emportait sur le
+// `display: none` de l'attribut — les quatre pages s'empilaient donc sur une seule. Le routeur
+// ne monte que la route courante : il n'y a plus de règle capable de ramener les autres.
 //
 // L'ÉTAT EST RELU, PAS TENU. Voix, fiches et paquets vivent sur le disque, et on peut les y
 // déposer à la main. Chaque commande qui les modifie déclenche une relecture ; garder un miroir
 // local aurait fait diverger la fenêtre du dossier.
 
 import { useCallback, useEffect, useState } from "react";
+import { NavLink, Outlet, useOutletContext } from "react-router";
 import { lireEtat, choisirPeripherique, type Cible, type Etat } from "./api";
-import Player from "./vues/Player";
-import Fiches from "./vues/Fiches";
-import Atelier from "./vues/Atelier";
-import Packs from "./vues/Packs";
 
 const ONGLETS = [
-  { cle: "player", nom: "Player" },
-  { cle: "fiches", nom: "Fiches" },
-  { cle: "atelier", nom: "Atelier" },
-  { cle: "packs", nom: "Packs" },
+  { chemin: "/", nom: "Player" },
+  { chemin: "/fiches", nom: "Fiches" },
+  { chemin: "/atelier", nom: "Atelier" },
+  { chemin: "/packs", nom: "Packs" },
 ] as const;
-
-type Onglet = (typeof ONGLETS)[number]["cle"];
 
 const VIDE: Etat = {
   pret: false,
@@ -37,9 +35,24 @@ const VIDE: Etat = {
   peripherique: 0,
 };
 
-export default function App() {
+/**
+ * Ce que la fenêtre prête aux pages.
+ *
+ * `choisie` TRAVERSE LES ROUTES : l'atelier la pose en sortant de la forge, le player la lit.
+ * C'est ce qui fait de « forger, entendre, corriger » un geste et pas une navigation, et c'est
+ * la raison pour laquelle cet état vit ici plutôt que dans une page.
+ */
+export interface Contexte {
+  etat: Etat;
+  relire: () => Promise<void>;
+  choisie: Cible | null;
+  setChoisie: (c: Cible) => void;
+}
+
+export const useFenetre = () => useOutletContext<Contexte>();
+
+export default function Fenetre() {
   const [etat, setEtat] = useState<Etat>(VIDE);
-  const [onglet, setOnglet] = useState<Onglet>("player");
   const [choisie, setChoisie] = useState<Cible | null>(null);
 
   const relire = useCallback(async () => {
@@ -56,14 +69,18 @@ export default function App() {
         <h1>Ventriloque</h1>
         <nav>
           {ONGLETS.map((o) => (
-            <button
-              key={o.cle}
-              type="button"
-              className={o.cle === onglet ? "onglet actif" : "onglet"}
-              onClick={() => setOnglet(o.cle)}
+            <NavLink
+              key={o.chemin}
+              to={o.chemin}
+              // `end` ne change rien aujourd'hui — react-router exige déjà que le caractère
+              // suivant soit un `/`, donc « / » n'est pas actif sur « /packs ». Il est là pour
+              // le jour où une page prendra des sous-routes : « /fiches » resterait alors
+              // marqué sur « /fiches/judy », ce qui est rarement ce qu'on veut d'un onglet.
+              end
+              className={({ isActive }) => (isActive ? "onglet actif" : "onglet")}
             >
               {o.nom}
-            </button>
+            </NavLink>
           ))}
         </nav>
         <label className="sortie">
@@ -92,12 +109,7 @@ export default function App() {
         </p>
       )}
 
-      {onglet === "player" && (
-        <Player etat={etat} choisie={choisie} setChoisie={setChoisie} />
-      )}
-      {onglet === "fiches" && <Fiches etat={etat} relire={relire} />}
-      {onglet === "atelier" && <Atelier relire={relire} setChoisie={setChoisie} />}
-      {onglet === "packs" && <Packs etat={etat} relire={relire} />}
+      <Outlet context={{ etat, relire, choisie, setChoisie } satisfies Contexte} />
     </>
   );
 }

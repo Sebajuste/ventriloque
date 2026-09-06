@@ -49,6 +49,10 @@ nav {
   gap: 4px;
 }
 
+/* Les onglets sont des liens depuis le routeur. Tout le reste de la boite etait deja pose
+   explicitement -- fond, bordure, couleur, `font: inherit` -- et un enfant de flex est blockifie,
+   donc un <a> occupe exactement la boite qu'occupait le <button>. Seul le soulignement, que le
+   bouton n'avait pas, restait a retirer. */
 .onglet {
   background: none;
   border: 1px solid transparent;
@@ -57,6 +61,7 @@ nav {
   border-radius: 6px;
   cursor: pointer;
   font: inherit;
+  text-decoration: none;
 }
 .onglet:hover {
   color: var(--texte);
