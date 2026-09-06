@@ -1,0 +1,11 @@
+{
+  "id": "artanis",
+  "name": "Artanis",
+  "universe": "StarCraft II",
+  "voice": "sc2_artanis.wav",
+  "lines": [
+    "Le rituel est terminé. Et maintenant ?",
+    "Mes guerriers ont sécurisé cet objectif.",
+    "Vous devriez avoir tout ce qu’il vous faut maintenant, forge-phase."
+  ]
+}

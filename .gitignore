@@ -18,15 +18,25 @@ src-tauri/binaries/fabriquer.exe
 outils/__pycache__/
 
 # Les recettes INSTALLEES, posees la par un paquet. Les sources sont dans `outils/recettes/`.
-/recettes/
+/recipes/
 
 # Ce qui ne se publie pas : un demi-gigaoctet de modeles sous liste d'autorisation, les
 # references de voix tirees des jeux du joueur, et le cache de clonage qui se refait seul.
-modeles/
-voix/
-packs-a-distribuer/
-moteur/
+/models/
+/voices/
+/packs-a-distribuer/
+/engine/
+/.build/
 diag.log
+
+# Les memes dossiers sous leurs noms d'avant. Ventriloque les renomme au demarrage, mais une
+# copie plus ancienne posee ici ne doit pas apparaitre entre-temps comme du contenu a versionner.
+/voix/
+/pnj/
+/modeles/
+/recettes/
+/moteur/
+/.fabrique/
 
 # CascLib est un depot tiers clone sur place — il porte 91 Mo de `listfile`. Il se recupere, il
 # ne se versionne pas ici. Le `build.rs` du fabricant dit comment le cloner s'il manque.

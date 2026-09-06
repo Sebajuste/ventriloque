@@ -1,0 +1,11 @@
+{
+  "id": "zagara",
+  "name": "Zagara",
+  "universe": "StarCraft II",
+  "voice": "sc2_zagara.wav",
+  "lines": [
+    "Cette issue ne faisait aucun doute.",
+    "Ma couvée fournira tout le soutien nécessaire.",
+    "Pourquoi ne le seraient-ils pas ? La ténacité est une qualité guerrière."
+  ]
+}

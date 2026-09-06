@@ -1,0 +1,11 @@
+{
+  "id": "river_ward",
+  "name": "River Ward",
+  "universe": "Cyberpunk 2077",
+  "voice": "river_ward.wav",
+  "lines": [
+    "Je suis pas là en tant que flic. Pas ce soir.",
+    "Raconte-moi tout, depuis le début.",
+    "Y a des choses qu'on peut pas laisser passer."
+  ]
+}

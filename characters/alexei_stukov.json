@@ -1,0 +1,11 @@
+{
+  "id": "alexei_stukov",
+  "name": "Alexei Stukov",
+  "universe": "StarCraft II",
+  "voice": "sc2_alexei_stukov.wav",
+  "lines": [
+    "Kerrigan est en difficulté ! Nous devons détruire le temple !",
+    "Les formalités ne sont pas nécessaires.",
+    "L’hybride est mort, mais ce ne sera pas le dernier."
+  ]
+}

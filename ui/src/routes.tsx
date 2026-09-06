@@ -1,53 +1,53 @@
 // Les quatre pages, et rien d'autre.
 //
-// LES VUES NE CONNAISSENT PAS LE ROUTEUR. Chacune reçoit encore exactement les props qu'elle
-// recevait avant, et ce sont les quatre adaptateurs ci-dessous qui vont les chercher dans le
-// contexte de la fenêtre. Le détour coûte vingt lignes et rend deux choses : une vue se monte
-// seule dans un test, sans routeur autour, et remplacer le routeur un jour ne touchera pas une
-// ligne des pages.
+// LES VUES NE CONNAISSENT PAS LE ROUTEUR. Chacune recoit exactement les props dont elle a besoin,
+// et ce sont les quatre adaptateurs ci-dessous qui vont les chercher dans le contexte de la
+// fenetre. Le detour coute vingt lignes et rend deux choses : une vue se monte seule dans un
+// test, sans routeur autour, et remplacer le routeur un jour ne touchera pas une ligne des pages.
 //
-// PAS DE `Router` ICI. `main.tsx` l'enveloppe dans un `HashRouter` — celui qui survit au
-// protocole de Tauri — et les tests dans un `MemoryRouter`, qui part d'où ils veulent et ne
-// laisse pas d'adresse derrière lui d'un test à l'autre.
+// PAS DE `Router` ICI. `main.tsx` l'enveloppe dans un `HashRouter` -- celui qui survit au
+// protocole de Tauri -- et les tests dans un `MemoryRouter`, qui part d'ou ils veulent et ne
+// laisse pas d'adresse derriere lui d'un test a l'autre.
 
 import { Navigate, Route, Routes } from "react-router";
 
-import Fenetre, { useFenetre } from "./App";
-import Player from "./vues/Player";
-import Fiches from "./vues/Fiches";
-import Atelier from "./vues/Atelier";
-import Packs from "./vues/Packs";
+import AppShell from "./shell/AppShell";
+import { useShell } from "./shell/context";
+import CharactersView from "./views/CharactersView";
+import PacksView from "./views/PacksView";
+import PlayerView from "./views/PlayerView";
+import WorkshopView from "./views/WorkshopView";
 
-function PagePlayer() {
-  const { etat, choisie, setChoisie } = useFenetre();
-  return <Player etat={etat} choisie={choisie} setChoisie={setChoisie} />;
+function PlayerPage() {
+  const { snapshot, target, setTarget } = useShell();
+  return <PlayerView snapshot={snapshot} target={target} setTarget={setTarget} />;
 }
 
-function PageFiches() {
-  const { etat, relire } = useFenetre();
-  return <Fiches etat={etat} relire={relire} />;
+function CharactersPage() {
+  const { snapshot, reload } = useShell();
+  return <CharactersView snapshot={snapshot} reload={reload} />;
 }
 
-function PageAtelier() {
-  const { relire, setChoisie } = useFenetre();
-  return <Atelier relire={relire} setChoisie={setChoisie} />;
+function WorkshopPage() {
+  const { reload, setTarget } = useShell();
+  return <WorkshopView reload={reload} setTarget={setTarget} />;
 }
 
-function PagePacks() {
-  const { etat, relire } = useFenetre();
-  return <Packs etat={etat} relire={relire} />;
+function PacksPage() {
+  const { snapshot, reload } = useShell();
+  return <PacksView snapshot={snapshot} reload={reload} />;
 }
 
-export function Routage() {
+export function AppRoutes() {
   return (
     <Routes>
-      <Route element={<Fenetre />}>
-        <Route index element={<PagePlayer />} />
-        <Route path="fiches" element={<PageFiches />} />
-        <Route path="atelier" element={<PageAtelier />} />
-        <Route path="packs" element={<PagePacks />} />
-        {/* Une adresse inconnue ramène au player plutôt que de laisser une fenêtre vide. En
-            seance, un `#/` mal formé ne doit pas ressembler à une application qui a planté. */}
+      <Route element={<AppShell />}>
+        <Route index element={<PlayerPage />} />
+        <Route path="fiches" element={<CharactersPage />} />
+        <Route path="atelier" element={<WorkshopPage />} />
+        <Route path="packs" element={<PacksPage />} />
+        {/* Une adresse inconnue ramene au player plutot que de laisser une fenetre vide. En
+            seance, un `#/` mal forme ne doit pas ressembler a une application qui a plante. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

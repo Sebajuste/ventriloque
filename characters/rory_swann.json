@@ -1,0 +1,11 @@
+{
+  "id": "rory_swann",
+  "name": "Rory Swann",
+  "universe": "StarCraft II",
+  "voice": "sc2_rory_swann.wav",
+  "lines": [
+    "Un poisson de plus dans nos filets.",
+    "Mes petits gars viennent de choper l’objectif.",
+    "Tu t’en es tirée, après tout. Merci, Nova."
+  ]
+}

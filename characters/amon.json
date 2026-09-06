@@ -1,0 +1,11 @@
+{
+  "id": "amon",
+  "name": "Amon",
+  "universe": "StarCraft II",
+  "voice": "sc2_amon.wav",
+  "lines": [
+    "Vaisseaux de guerre… Vecteurs de souffrance… Sentez la douleur que vous infligez.",
+    "J’ai un cadeau. Le néant libérateur.",
+    "Sans trêve. Sans répit. Souffrez comme la galaxie souffrira de votre présence."
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "alarak",
+  "name": "Alarak",
+  "universe": "StarCraft II",
+  "voice": "sc2_alarak.wav",
+  "lines": [
+    "L’ennemi ferait mieux de capituler.",
+    "Vous avez de la chance, je suis d’humeur généreuse aujourd’hui.",
+    "La défense est une stratégie de perdants, mais rien ne m’empêchera de l’emporter."
+  ]
+}

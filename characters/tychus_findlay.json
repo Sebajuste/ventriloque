@@ -1,0 +1,11 @@
+{
+  "id": "tychus_findlay",
+  "name": "Tychus Findlay",
+  "universe": "StarCraft II",
+  "voice": "sc2_tychus_findlay.wav",
+  "lines": [
+    "On a une mission de protection, amigos.",
+    "On va protéger l’objectif. Tu nous remercieras plus tard.",
+    "J’espère qu’il avait fait ses prières."
+  ]
+}

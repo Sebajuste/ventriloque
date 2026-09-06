@@ -1,0 +1,11 @@
+{
+  "id": "nova",
+  "name": "Nova",
+  "universe": "StarCraft II",
+  "voice": "sc2_nova.wav",
+  "lines": [
+    "Il y a un vigilant ici. Je ferais mieux de l’éviter.",
+    "Un nouveau conteneur de terrazine est prêt à être enlevé.",
+    "Je suis d’accord. Et c’est pour ça que je dois prendre ceci."
+  ]
+}

@@ -11,7 +11,7 @@
 # Les livrer ensemble obligeait a choisir entre un paquet de 364 Mio et une variante allegee qui
 # repetait les memes .onnx -- une duplication qui n'avait aucune raison d'exister.
 #
-# (les voix de catalogue atterrissent sous modeles/catalogue/ parce que c'est la que le moteur
+# (les voix de catalogue atterrissent sous models/catalogue/ parce que c'est la que le moteur
 # les cherche : cfg_.models_dir + "/catalogue/" + nom + ".kv". Le dossier est celui du moteur,
 # la nature du contenu est celle d'un pack de voix.)
 #
@@ -48,9 +48,9 @@ DEST = "packs-a-distribuer"
 MOTEUR = {
     "cible": "ventriloque-moteur-fr-USAGE-PERSONNEL.zip",
     "manifeste": {
-        "nom": "Moteur de parole francais",
+        "name": "Moteur de parole francais",
         "version": "pocket-tts 2.1.0 / fr_24l int8",
-        "auteur": "Kyutai Labs (poids CC-BY-4.0) - pack de clonage, usage personnel",
+        "author": "Kyutai Labs (poids CC-BY-4.0) - pack de clonage, usage personnel",
         "description": "Ce qui parle et ce qui clone. Indispensable, et sans aucune voix.",
     },
 }
@@ -58,16 +58,16 @@ MOTEUR = {
 VOIX_LIBRES = {
     "cible": "ventriloque-voix-libres-fr.zip",
     "manifeste": {
-        "nom": "Voix libres",
+        "name": "Voix libres",
         "version": "1.0",
-        "auteur": "Kyutai Labs, d'apres les corpus ouverts VCTK et EARS (CC-BY-4.0)",
+        "author": "Kyutai Labs, d'apres les corpus ouverts VCTK et EARS (CC-BY-4.0)",
         "description": "Neuf voix toutes faites, sans clonage et sans personnage.",
     },
 }
 
 
 def ecrire(cible, manifeste, fichiers, source):
-    """fichiers : liste de chemins relatifs a `source`, poses sous modeles/ dans le zip."""
+    """fichiers : liste de chemins relatifs a `source`, poses sous models/ dans le zip."""
     chemin = os.path.join(DEST, cible)
     debut = time.time()
     brut = 0
@@ -75,7 +75,7 @@ def ecrire(cible, manifeste, fichiers, source):
         z.writestr("pack.json", json.dumps(manifeste, ensure_ascii=False, indent=2))
         for rel in fichiers:
             plein = os.path.join(source, rel)
-            z.write(plein, "modeles/" + rel.replace(os.sep, "/"))
+            z.write(plein, "models/" + rel.replace(os.sep, "/"))
             brut += os.path.getsize(plein)
     poids = os.path.getsize(chemin)
     gain = 100 - 100 * poids / brut if brut else 0

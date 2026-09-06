@@ -21,9 +21,9 @@ SOURCE = os.environ.get("VENTRILOQUE_VOIX_CP77", "")
 CIBLE = "packs-a-distribuer/ventriloque-cyberpunk-2077-USAGE-PERSONNEL.zip"
 
 MANIFESTE = {
-    "nom": "Cyberpunk 2077",
+    "name": "Cyberpunk 2077",
     "version": "1.2",
-    "auteur": "voix extraites par ai_npc-holo depuis une copie du jeu - usage personnel",
+    "author": "voix extraites par ai_npc-holo depuis une copie du jeu - usage personnel",
     "description": "Neuf habitants de Night City, avec leurs fiches et leurs repliques.",
 }
 
@@ -128,16 +128,16 @@ def main():
     with zipfile.ZipFile(CIBLE, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("pack.json", json.dumps(MANIFESTE, ensure_ascii=False, indent=2))
         for fichier, (nom, repliques) in sorted(CAST.items()):
-            z.write(os.path.join(args.source, fichier), "voix/" + fichier)
+            z.write(os.path.join(args.source, fichier), "voices/" + fichier)
             fiche = {
                 "id": identifiant(nom),
-                "nom": nom,
-                "univers": "Cyberpunk 2077",
-                "voix": fichier,
-                "repliques": repliques,
+                "name": nom,
+                "universe": "Cyberpunk 2077",
+                "voice": fichier,
+                "lines": repliques,
             }
             z.writestr(
-                "pnj/" + fiche["id"] + ".json",
+                "characters/" + fiche["id"] + ".json",
                 json.dumps(fiche, ensure_ascii=False, indent=2),
             )
 

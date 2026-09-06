@@ -1,0 +1,11 @@
+{
+  "id": "jim_raynor",
+  "name": "Jim Raynor",
+  "universe": "StarCraft II",
+  "voice": "sc2_jim_raynor.wav",
+  "lines": [
+    "Et maintenant, mes gars vont montrer à ceux de Möbius de quel bois ils se chauffent.",
+    "L’ennemi est en route vers notre base.",
+    "Là, ça chauffe… Amon nous envoie tout ce qu’il a !"
+  ]
+}

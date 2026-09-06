@@ -6,16 +6,17 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { HashRouter } from "react-router";
-import { Routage } from "./routes";
+
+import { AppRoutes } from "./routes";
 import "./styles.css";
 
-const racine = document.getElementById("racine");
-if (racine === null) throw new Error("la page n'a pas de point d'accroche");
+const mount = document.getElementById("root");
+if (mount === null) throw new Error("la page n'a pas de point d'accroche");
 
-createRoot(racine).render(
+createRoot(mount).render(
   <StrictMode>
     <HashRouter>
-      <Routage />
+      <AppRoutes />
     </HashRouter>
   </StrictMode>,
 );

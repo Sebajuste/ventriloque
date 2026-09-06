@@ -1,26 +1,20 @@
 {
-  "nom": "Moteur de parole francais",
+  "name": "Moteur de parole francais",
   "version": "pocket-tts 2.1.0 / fr_24l int8",
-  "description": "Le modele qui parle et qui clone, plus les neuf voix de catalogue.",
-  "auteur": "Kyutai Labs (poids CC-BY-4.0) — pack de clonage, NE PAS REDISTRIBUER",
-  "fichiers": [
-    "modeles/bos_before_voice.bin",
-    "modeles/flow_lm_flow.onnx",
-    "modeles/flow_lm_main_int8.onnx",
-    "modeles/frames_after_eos.txt",
-    "modeles/mimi_decoder_int8.onnx",
-    "modeles/mimi_encoder.onnx",
-    "modeles/text_conditioner.onnx",
-    "modeles/tokenizer.model",
-    "modeles/catalogue/bill_boerst.kv",
-    "modeles/catalogue/eponine.kv",
-    "modeles/catalogue/eve.kv",
-    "modeles/catalogue/george.kv",
-    "modeles/catalogue/jean.kv",
-    "modeles/catalogue/mary.kv",
-    "modeles/catalogue/michael.kv",
-    "modeles/catalogue/paul.kv",
-    "modeles/catalogue/vera.kv"
+  "description": "Ce qui parle et ce qui clone. Indispensable, et sans aucune voix.",
+  "author": "Kyutai Labs (poids CC-BY-4.0) - pack de clonage, usage personnel",
+  "recipe": "",
+  "game": "",
+  "files": [
+    "models/bos_before_voice.bin",
+    "models/flow_lm_flow.onnx",
+    "models/flow_lm_main_int8.onnx",
+    "models/frames_after_eos.txt",
+    "models/mimi_decoder_int8.onnx",
+    "models/mimi_encoder.onnx",
+    "models/text_conditioner.onnx",
+    "models/tokenizer.model"
   ],
-  "installe_le": "2026-09-06"
+  "installed_on": "2026-09-06",
+  "built_on": ""
 }

@@ -1,0 +1,11 @@
+{
+  "id": "izsha",
+  "name": "Izsha",
+  "universe": "StarCraft II",
+  "voice": "sc2_izsha.wav",
+  "lines": [
+    "L’un des objectifs principaux est prêt pour le transport.",
+    "Nous sommes sous la menace des hybrides.",
+    "L’ennemi a déchaîné un lacérateur du Vide contre nous."
+  ]
+}

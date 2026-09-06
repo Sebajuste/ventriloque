@@ -1,0 +1,11 @@
+{
+  "id": "karax",
+  "name": "Karax",
+  "universe": "StarCraft II",
+  "voice": "sc2_karax.wav",
+  "lines": [
+    "Nous avons réussi à contenir la cible.",
+    "Une prestation audacieuse, si je puis me permettre.",
+    "Cette zone appartient aux Templiers. Nul ne nous la prendra."
+  ]
+}

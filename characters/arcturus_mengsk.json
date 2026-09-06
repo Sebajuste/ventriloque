@@ -1,0 +1,11 @@
+{
+  "id": "arcturus_mengsk",
+  "name": "Arcturus Mengsk",
+  "universe": "StarCraft II",
+  "voice": "sc2_arcturus_mengsk.wav",
+  "lines": [
+    "Protéger l’objectif est votre seul devoir.",
+    "C’est là que vous entrez en action.",
+    "Protégez-vous les uns les autres pendant cette opération."
+  ]
+}

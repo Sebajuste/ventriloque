@@ -1,0 +1,11 @@
+{
+  "id": "matt_horner",
+  "name": "Matt Horner",
+  "universe": "StarCraft II",
+  "voice": "sc2_matt_horner.wav",
+  "lines": [
+    "Si tout se déroule comme prévu, nous devrions nous en sortir.",
+    "Je suis là pour te demander ton aide.",
+    "Excellent travail. Nous y sommes presque."
+  ]
+}

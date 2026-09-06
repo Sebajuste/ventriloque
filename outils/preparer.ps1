@@ -32,7 +32,7 @@ if ($ouverts.Count -gt 0) {
 }
 
 # LE FABRICANT D'ABORD. Il porte CascLib et le moteur de script, et fait tourner les recettes
-# des paquets hors du processus de l'application. Voir `recette.rs`.
+# des paquets hors du processus de l'application. Voir `packs/build.rs`.
 Write-Output "== fabricant (casclib + rhai) =="
 cargo build --release --manifest-path outils\fabriquer\Cargo.toml
 if ($LASTEXITCODE -ne 0) { throw "la compilation du fabricant a échoué" }
@@ -40,9 +40,9 @@ Copy-Item outils\fabriquer\target\release\fabriquer.exe src-tauri\binaries\fabri
 
 # LE LIEN ENSUITE, AVANT DE BÂTIR L'INTERFACE CONTRE LUI.
 #
-# `ui\src\lien.ts` porte les commandes de Rust et la forme de leurs retours ; il est écrit par
-# `cargo test lien`. Le regénérer après avoir bâti l'interface ne servirait à rien : elle aurait
-# déjà compilé contre la version d'avant.
+# `ui\src\ipc\bindings.ts` porte les commandes de Rust et la forme de leurs retours ; il est
+# écrit par `cargo test bindings`. Le regénérer après avoir bâti l'interface ne servirait à rien :
+# elle aurait déjà compilé contre la version d'avant.
 Write-Output ""
 Write-Output "== lien rust <-> interface =="
 
@@ -55,16 +55,16 @@ Write-Output "== lien rust <-> interface =="
 # s'apprête à bâtir ne compile plus contre ce qui a été relu.
 #
 # Dans les deux cas on avertit et on continue. Le seul juge est celui qui lit le diff.
-$avant = git status --porcelain -- ui/src/lien.ts 2>$null
+$avant = git status --porcelain -- ui/src/ipc/bindings.ts 2>$null
 
-cargo test --manifest-path src-tauri\Cargo.toml lien
+cargo test --manifest-path src-tauri\Cargo.toml bindings
 if ($LASTEXITCODE -ne 0) { throw "le lien vers l'interface n'a pas pu être écrit" }
 
-$apres = git status --porcelain -- ui/src/lien.ts 2>$null
+$apres = git status --porcelain -- ui/src/ipc/bindings.ts 2>$null
 if ($apres -and -not $avant) {
-    Write-Warning "le contrat vient de bouger : une commande Rust a changé et ui\src\lien.ts a été réécrit. Relis « git diff ui/src/lien.ts » avant de commiter."
+    Write-Warning "le contrat vient de bouger : une commande Rust a changé et ui\src\ipc\bindings.ts a été réécrit. Relis « git diff ui/src/ipc/bindings.ts » avant de commiter."
 } elseif ($apres) {
-    Write-Output "  (ui\src\lien.ts est modifié et non commité — travail en cours)"
+    Write-Output "  (ui\src\ipc\bindings.ts est modifié et non commité — travail en cours)"
 }
 
 Write-Output ""

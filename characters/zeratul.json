@@ -1,0 +1,11 @@
+{
+  "id": "zeratul",
+  "name": "Zeratul",
+  "universe": "StarCraft II",
+  "voice": "sc2_zeratul.wav",
+  "lines": [
+    "Nous ferons échouer leur évacuation.",
+    "Nous allons de l’avant quelle que soit l’adversité.",
+    "Nous renverserons le cours du destin."
+  ]
+}
