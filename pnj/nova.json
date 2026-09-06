@@ -1,0 +1,11 @@
+{
+  "id": "nova",
+  "nom": "Nova",
+  "univers": "StarCraft II",
+  "voix": "sc2_nova.wav",
+  "repliques": [
+    "Vous vous attendiez à autre chose ?",
+    "Je rencontre pas mal de résistance…",
+    "Il faut les arrêter tout de suite !"
+  ]
+}

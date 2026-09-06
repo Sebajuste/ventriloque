@@ -1,0 +1,11 @@
+{
+  "id": "izsha",
+  "nom": "Izsha",
+  "univers": "StarCraft II",
+  "voix": "sc2_izsha.wav",
+  "repliques": [
+    "L’objectif bonus subit une attaque.",
+    "Un objectif bonus a été mis à jour.",
+    "L’objectif principal a été protégé."
+  ]
+}

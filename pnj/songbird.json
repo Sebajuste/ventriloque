@@ -1,0 +1,11 @@
+{
+  "id": "songbird",
+  "nom": "Songbird",
+  "univers": "Cyberpunk 2077",
+  "voix": "songbird.wav",
+  "repliques": [
+    "Je sais déjà ce que tu vas demander.",
+    "Rien de ce que tu vois ici n'est vraiment là.",
+    "Fais-moi confiance. Une dernière fois."
+  ]
+}

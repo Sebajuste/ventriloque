@@ -1,0 +1,11 @@
+{
+  "id": "alarak",
+  "nom": "Alarak",
+  "univers": "StarCraft II",
+  "voix": "sc2_alarak.wav",
+  "repliques": [
+    "Rien ne peut arrêter les Tal’darim.",
+    "C’est tout ? Quelle perte de temps.",
+    "L’ennemi ferait mieux de capituler."
+  ]
+}

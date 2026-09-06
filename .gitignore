@@ -1,0 +1,21 @@
+# Ce qui se rebatit
+src-tauri/target/
+src-tauri/gen/schemas/
+ui/node_modules/
+ui/dist/
+dist/
+outils/monter-voix/target/
+outils/extraire-casc/obj/
+outils/extraire-casc/*.exe
+
+# Ce qui ne se publie pas : un demi-gigaoctet de modeles sous liste d'autorisation, les
+# references de voix tirees des jeux du joueur, et le cache de clonage qui se refait seul.
+modeles/
+voix/
+packs-a-distribuer/
+moteur/
+diag.log
+
+# CascLib est un depot tiers clone sur place — il porte son propre `.git` et 91 Mo de
+# `listfile`. Il se recupere, il ne se versionne pas ici.
+outils/extraire-casc/vendor/

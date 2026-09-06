@@ -1,0 +1,27 @@
+{
+  "nom": "Cyberpunk 2077",
+  "version": "1.1",
+  "description": "Neuf habitants de Night City, avec leurs fiches et leurs repliques.",
+  "auteur": "voix extraites par ai_npc-holo depuis une copie du jeu",
+  "fichiers": [
+    "voix/jackie.wav",
+    "pnj/jackie_welles.json",
+    "voix/judy.wav",
+    "pnj/judy_alvarez.json",
+    "voix/kerry_eurodyne.wav",
+    "pnj/kerry_eurodyne.json",
+    "voix/panam.wav",
+    "pnj/panam_palmer.json",
+    "voix/river_ward.wav",
+    "pnj/river_ward.json",
+    "voix/rogue.wav",
+    "pnj/rogue_amendiares.json",
+    "voix/songbird.wav",
+    "pnj/songbird.json",
+    "voix/takemura.wav",
+    "pnj/goro_takemura.json",
+    "voix/victor_vector.wav",
+    "pnj/viktor_vector.json"
+  ],
+  "installe_le": "2026-09-06"
+}

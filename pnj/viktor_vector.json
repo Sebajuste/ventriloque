@@ -1,0 +1,11 @@
+{
+  "id": "viktor_vector",
+  "nom": "Viktor Vector",
+  "univers": "Cyberpunk 2077",
+  "voix": "victor_vector.wav",
+  "repliques": [
+    "Allonge-toi. Ça va piquer un peu.",
+    "T'as encore repoussé la limite, hein ?",
+    "Paye quand tu peux. Mais paye."
+  ]
+}

@@ -1,0 +1,9 @@
+# Normalisation en LF dans le depot, fins de ligne natives dans la copie de travail.
+* text=auto
+
+# Ce que git ne doit jamais tenter de normaliser ni de fusionner.
+*.exe binary
+*.dll binary
+*.wav binary
+*.onnx binary
+*.zip binary

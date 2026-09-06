@@ -1,0 +1,11 @@
+{
+  "id": "rory_swann",
+  "nom": "Rory Swann",
+  "univers": "StarCraft II",
+  "voix": "sc2_rory_swann.wav",
+  "repliques": [
+    "On peut rayer celui-là de la liste.",
+    "Ouais, pas de problème, mon grand !",
+    "Le vaisseau va pas tenir longtemps !"
+  ]
+}

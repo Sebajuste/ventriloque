@@ -1,0 +1,15 @@
+[package]
+name = "monter-voix"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "monter-voix"
+path = "src/main.rs"
+
+[dependencies]
+hound = "3.5.1"
+symphonia = { version = "0.5.5", default-features = false, features = ["ogg", "vorbis"] }
+
+[profile.release]
+opt-level = 2

@@ -1,0 +1,11 @@
+{
+  "id": "jim_raynor",
+  "nom": "Jim Raynor",
+  "univers": "StarCraft II",
+  "voix": "sc2_jim_raynor.wav",
+  "repliques": [
+    "Maintenant, laissez-nous une minute.",
+    "Pigé. Les réparations vont commencer.",
+    "L’ennemi est en route vers notre base."
+  ]
+}

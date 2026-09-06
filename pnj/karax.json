@@ -1,0 +1,11 @@
+{
+  "id": "karax",
+  "nom": "Karax",
+  "univers": "StarCraft II",
+  "voix": "sc2_karax.wav",
+  "repliques": [
+    "Cette zone est sous notre contrôle.",
+    "Mes guerriers défendent l’objectif.",
+    "Mes guerriers recherchent les cibles."
+  ]
+}

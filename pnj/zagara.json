@@ -1,0 +1,11 @@
+{
+  "id": "zagara",
+  "nom": "Zagara",
+  "univers": "StarCraft II",
+  "voix": "sc2_zagara.wav",
+  "repliques": [
+    "Nous allons revendiquer cette zone.",
+    "Cette issue ne faisait aucun doute.",
+    "Broyez toute opposition dans l’œuf."
+  ]
+}

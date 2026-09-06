@@ -1,0 +1,11 @@
+{
+  "id": "dehaka",
+  "nom": "Dehaka",
+  "univers": "StarCraft II",
+  "voix": "sc2_dehaka.wav",
+  "repliques": [
+    "L’adversité engendre le changement.",
+    "Il est en sécurité, pour le moment.",
+    "Les Zergs primordiaux triompheront."
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "abathur",
+  "nom": "Abathur",
+  "univers": "StarCraft II",
+  "voix": "sc2_abathur.wav",
+  "repliques": [
+    "Envoi de troupes pour sécurisation.",
+    "Objectif en vue. Essaim, au combat.",
+    "Objectif en mouvement. Escorte zerg."
+  ]
+}

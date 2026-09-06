@@ -1,0 +1,11 @@
+{
+  "id": "egon_stetmann",
+  "nom": "Egon Stetmann",
+  "univers": "StarCraft II",
+  "voix": "sc2_egon_stetmann.wav",
+  "repliques": [
+    "Je ne peux plus retenir mes bébés !",
+    "La procédure de brevet est en cours.",
+    "Méca-essaim, réduis-le en morceaux !"
+  ]
+}

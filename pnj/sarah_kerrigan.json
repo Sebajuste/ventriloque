@@ -1,0 +1,11 @@
+{
+  "id": "sarah_kerrigan",
+  "nom": "Sarah Kerrigan",
+  "univers": "StarCraft II",
+  "voix": "sc2_sarah_kerrigan.wav",
+  "repliques": [
+    "L’Essaim se dirige vers un cristal.",
+    "Je ne tiendrais pas éternellement !",
+    "Pourquoi nous as-tu convoqués ici ?"
+  ]
+}

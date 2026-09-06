@@ -1,0 +1,11 @@
+{
+  "id": "arcturus_mengsk",
+  "nom": "Arcturus Mengsk",
+  "univers": "StarCraft II",
+  "voix": "sc2_arcturus_mengsk.wav",
+  "repliques": [
+    "C’est là que vous entrez en action.",
+    "Vous l’avez tous payé de votre sang.",
+    "Vous aviez envisagé une autre issue ?"
+  ]
+}
