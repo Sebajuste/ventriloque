@@ -7,6 +7,7 @@
 //
 //   fabriquer --script <recette.rhai> --jeu <racine du jeu> --sortie <dossier de travail>
 //   fabriquer --lister <motif> --jeu <racine du jeu>          pour fouiller a la main
+//   fabriquer --hacher <chemin depot>                         pour ecrire une recette Cyberpunk
 //
 // La sortie porte `voix\*.wav` et `pnj\*.json`, que Ventriloque moissonne ensuite avec la meme
 // rigueur qu'un zip. Rien n'est ecrit ailleurs, et rien n'est ecrit dans le dossier du jeu.
@@ -14,6 +15,9 @@
 mod casc;
 mod hote;
 mod montage;
+mod rdar;
+mod stockage;
+mod wwise;
 
 use std::path::PathBuf;
 
@@ -22,6 +26,7 @@ struct Arguments {
     jeu: PathBuf,
     sortie: PathBuf,
     lister: Option<String>,
+    hacher: Option<String>,
 }
 
 fn lire_arguments() -> Result<Arguments, String> {
@@ -31,6 +36,7 @@ fn lire_arguments() -> Result<Arguments, String> {
         jeu: PathBuf::new(),
         sortie: PathBuf::new(),
         lister: None,
+        hacher: None,
     };
 
     let mut i = 0;
@@ -43,11 +49,16 @@ fn lire_arguments() -> Result<Arguments, String> {
             "--jeu" => args.jeu = PathBuf::from(suivant()?),
             "--sortie" => args.sortie = PathBuf::from(suivant()?),
             "--lister" => args.lister = Some(suivant()?),
+            "--hacher" => args.hacher = Some(suivant()?),
             autre => return Err(format!("argument inconnu : {autre}")),
         }
         i += 2;
     }
 
+    // `--hacher` est du calcul pur : il ne lit ni jeu ni script.
+    if args.hacher.is_some() {
+        return Ok(args);
+    }
     if args.jeu.as_os_str().is_empty() {
         return Err("--jeu est obligatoire".into());
     }
@@ -65,14 +76,15 @@ fn lire_arguments() -> Result<Arguments, String> {
 fn travailler() -> Result<(), String> {
     let args = lire_arguments()?;
 
-    if !args.jeu.join(".build.info").exists() {
-        return Err(format!(
-            "{} ne porte pas de .build.info : ce n'est pas une installation Blizzard",
-            args.jeu.display()
-        ));
+    // UNE ARCHIVE CYBERPUNK NE CONNAIT QUE DES HACHAGES. Ecrire une recette pour ce jeu demande
+    // donc de traduire un chemin depot en son FNV1a64 ; le faire ici evite d'avoir a refaire
+    // l'algorithme, et de se tromper sur la casse.
+    if let Some(chemin) = args.hacher {
+        println!("{:016x}	{chemin}", rdar::hachage(&chemin));
+        return Ok(());
     }
 
-    let mut stockage = casc::Stockage::ouvrir(&args.jeu)?;
+    let mut stockage = stockage::ouvrir(&args.jeu)?;
     println!("stockage ouvert : produit {}", stockage.produit());
 
     // Fouille a la main : pas de script, pas de sortie, juste ce que le stockage nomme.

@@ -7,6 +7,8 @@ use std::ffi::{CStr, OsStr};
 use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 
+use crate::stockage::Entree;
+
 unsafe extern "C" {
     fn casc_ouvrir(racine: *const u16) -> *mut std::ffi::c_void;
     fn casc_fermer(poignee: *mut std::ffi::c_void);
@@ -23,12 +25,6 @@ unsafe extern "C" {
     fn casc_liberer(bloc: *mut u8);
 }
 
-/// Une entree nommee du stockage.
-#[derive(Clone, Debug)]
-pub struct Entree {
-    pub nom: String,
-    pub taille: u64,
-}
 
 pub struct Stockage {
     poignee: *mut std::ffi::c_void,

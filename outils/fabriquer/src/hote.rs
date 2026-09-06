@@ -28,7 +28,7 @@ use std::rc::Rc;
 use rhai::packages::Package;
 use rhai::{Array, Dynamic, Engine, EvalAltResult, Map, Scope};
 
-use crate::casc::Stockage;
+use crate::stockage::Stockage;
 use crate::montage::{self, Reglages};
 
 /// Ce que la fabrication a produit, pour le compte rendu final.

@@ -31,6 +31,21 @@ RECETTES = {
         # Ce n'est pas celui de CascLib, qui dit « s2 » pour le meme jeu.
         "produit": "sc2",
     },
+    "cyberpunk2077": {
+        "nom": "Cyberpunk 2077",
+        "version": "1.0",
+        "auteur": "recette d'extraction - les voix restent sur votre machine",
+        "description": "Neuf habitants de Night City, fabriques depuis votre copie du jeu.",
+        "recette": "cyberpunk2077.rhai",
+        "jeu": "Cyberpunk 2077",
+        # CYBERPUNK N'A PAS DE `.build.info` : il n'est pas de chez Blizzard, et rien a la racine
+        # de son installation ne porte un code de produit. Ce champ est donc celui que le
+        # fabricant rend une fois les archives ouvertes -- le meme que verifie `produit()` dans la
+        # recette -- et non un code lisible avant. Trouver l'installation toute seule demande une
+        # regle propre a REDengine (`archive\\pc\\content`), qui n'est pas encore ecrite du cote
+        # de l'application : le joueur designe son dossier de jeu.
+        "produit": "cp77",
+    },
 }
 
 

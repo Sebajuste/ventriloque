@@ -17,6 +17,18 @@ fn main() {
         );
     }
 
+    // La bibliotheque de codebooks d'aoTuV, que `wwise.rs` embarque pour rendre au doublage de
+    // Cyberpunk les tables que Wwise lui a retirees. Meme parti pris que CascLib : un depot
+    // tiers se clone, il ne se versionne pas ici.
+    let codebooks = "vendor/ww2ogg/packed_codebooks_aoTuV_603.bin";
+    println!("cargo:rerun-if-changed={codebooks}");
+    if !std::path::Path::new(codebooks).exists() {
+        panic!(
+            "packed_codebooks_aoTuV_603.bin absent. Depuis outils\\fabriquer :\n  \
+             git clone --depth 1 https://github.com/hcs64/ww2ogg.git vendor\\ww2ogg"
+        );
+    }
+
     // Le C et le C++ de CascLib ne se compilent pas dans le meme appel : `cc` choisit le
     // compilateur pour toute la fournee.
     cc::Build::new()
