@@ -1,9 +1,12 @@
 # Ce qui se rebatit
 src-tauri/target/
 src-tauri/gen/schemas/
-ui/node_modules/
 ui/dist/
 dist/
+
+# Sans barre oblique de tete : n'importe ou dans l'arbre. Il y a maintenant un `package.json` a
+# la racine en plus de celui de `ui`, et une regle par emplacement en aurait manque un.
+node_modules/
 outils/monter-voix/target/
 outils/extraire-casc/obj/
 outils/extraire-casc/*.exe
