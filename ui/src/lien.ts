@@ -12,6 +12,10 @@ export const commands = {
 	etat: () => __TAURI_INVOKE<Etat>("etat"),
 	parler: (reference: string, texte: string) => typedError<null, string>(__TAURI_INVOKE("parler", { reference, texte })),
 	taire: () => __TAURI_INVOKE<void>("taire"),
+	avancement: () => __TAURI_INVOKE<Avance>("avancement"),
+	avancementPack: () => __TAURI_INVOKE<AvancePack>("avancement_pack"),
+	pause: () => __TAURI_INVOKE<void>("pause"),
+	reprendre: () => __TAURI_INVOKE<void>("reprendre"),
 	choisirPeripherique: (rang: number) => __TAURI_INVOKE<void>("choisir_peripherique", { rang }),
 	forger: (nom: string, fichiers: string[], pitch: number | null, formants: number | null) => typedError<string, string>(__TAURI_INVOKE("forger", { nom, fichiers, pitch, formants })),
 	choisirFichiers: () => __TAURI_INVOKE<string[]>("choisir_fichiers"),
@@ -19,9 +23,34 @@ export const commands = {
 	supprimerFiche: (id: string) => typedError<null, string>(__TAURI_INVOKE("supprimer_fiche", { id })),
 	prechauffer: () => typedError<string[], string>(__TAURI_INVOKE("prechauffer")),
 	installerPack: () => typedError<string, string>(__TAURI_INVOKE("installer_pack")),
+	fabriquerPack: (pack: string, choisir: boolean) => typedError<string, string>(__TAURI_INVOKE("fabriquer_pack", { pack, choisir })),
+	desinstallerPack: (pack: string) => typedError<string, string>(__TAURI_INVOKE("desinstaller_pack", { pack })),
 };
 
 /* Types */
+export type Avance = {
+	position: number,
+	duree: number,
+	/**  La duree est connue : la barre peut devenir une vraie proportion. */
+	complete: boolean,
+	/**  Au moins un echantillon de la replique est passe. Avant, la voix se prepare. */
+	entendue: boolean,
+};
+
+export type AvancePack = {
+	actif: boolean,
+	faits: number,
+	total: number,
+	/**  Le fichier ou l'etape en cours, tel quel : la fenetre l'affiche sans l'interpreter. */
+	quoi: string,
+	/**
+	 *  Ce qui a ete fait jusqu'ici, ligne a ligne. La fenetre le montre pendant l'operation, et
+	 *  pas seulement a la fin : sur une fabrication de trois minutes, c'est la seule preuve que
+	 *  quelque chose avance.
+	 */
+	journal: string[],
+};
+
 export type Etat = {
 	pret: boolean,
 	fiches: Fiche[],
@@ -47,8 +76,12 @@ export type Manifeste = {
 	version?: string,
 	description?: string,
 	auteur?: string,
+	recette?: string,
+	jeu?: string,
+	produit?: string,
 	fichiers?: string[],
 	installe_le?: string,
+	fabrique_le?: string,
 };
 
 export type Palier = "clone" | "catalogue";

@@ -1,0 +1,21 @@
+{
+  "name": "ventriloque",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Un atelier qui clone des voix de PNJ, un player qui les joue en seance.",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build --no-bundle",
+    "build:rapide": "set VENTRILOQUE_SANS_TESTS=1 && tauri build --no-bundle",
+    "build:installateurs": "tauri build",
+    "postbuild": "node outils/deposer.mjs",
+    "lien": "cargo test --manifest-path src-tauri/Cargo.toml lien",
+    "test": "npm --prefix ui run test && cargo test --manifest-path src-tauri/Cargo.toml",
+    "verifier": "npm --prefix ui run verifier",
+    "ui": "npm --prefix ui run dev",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

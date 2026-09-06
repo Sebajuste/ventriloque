@@ -11,6 +11,9 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   build: { outDir: "dist", emptyOutDir: true, target: "esnext" },
+  // Port fixe et refus de se rabattre ailleurs : `tauri dev` pointe cette adresse en dur, et une
+  // fenetre ouverte sur un port vide serait un ecran blanc sans explication.
+  server: { port: 1420, strictPort: true },
   clearScreen: false,
   test: {
     environment: "jsdom",

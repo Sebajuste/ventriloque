@@ -38,7 +38,11 @@ import os
 import time
 import zipfile
 
-SOURCE = "C:/Users/sebaj/Documents/CP77_mods/ai_npc-holo/models/fr-cloning"
+# LE DOSSIER DES MODELES N'EST PAS DANS CE DEPOT et ne peut pas y etre : un demi-gigaoctet,
+# venu de `kyutai/pocket-tts` sur liste d'autorisation. On le nomme donc au lancement, par
+# `--source` ou par la variable d'environnement VENTRILOQUE_MODELES. Aucun chemin en dur :
+# ce script doit tourner sur n'importe laquelle de tes machines.
+SOURCE = os.environ.get("VENTRILOQUE_MODELES", "")
 DEST = "packs-a-distribuer"
 
 MOTEUR = {
@@ -84,8 +88,16 @@ def ecrire(cible, manifeste, fichiers, source):
 
 def main():
     a = argparse.ArgumentParser(description="Fabrique le paquet moteur et le paquet des voix libres.")
-    a.add_argument("--source", default=SOURCE, help="le dossier fr-cloning")
+    a.add_argument("--source", default=SOURCE, help="le dossier fr-cloning des modeles")
     args = a.parse_args()
+
+    if not args.source:
+        raise SystemExit(
+            "ou sont les modeles ? Donne --source <dossier fr-cloning>, ou pose "
+            "VENTRILOQUE_MODELES dans ton environnement."
+        )
+    if not os.path.isdir(args.source):
+        raise SystemExit(f"dossier introuvable : {args.source}")
 
     # Le fichier qui distingue le jeu de clonage du jeu libre. Sans lui, le binaire autonome ne
     # se contente pas de refuser de cloner : il ne demarre pas du tout.

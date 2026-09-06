@@ -9,12 +9,15 @@
 # une relance. Ce sont celles qu'on redit vingt fois dans une soiree, donc celles qui gagnent a
 # etre a un clic.
 
+import argparse
 import glob
 import json
 import os
 import zipfile
 
-SOURCE = "C:/Users/sebaj/Documents/CP77_mods/ai_npc-holo/dist/voices"
+# LES VOIX VIENNENT D'UN AUTRE PROJET, celui qui les extrait du jeu. Son emplacement ne
+# regarde pas ce depot : on le nomme par `--source`, ou par VENTRILOQUE_VOIX_CP77.
+SOURCE = os.environ.get("VENTRILOQUE_VOIX_CP77", "")
 CIBLE = "packs-a-distribuer/ventriloque-cyberpunk-2077-USAGE-PERSONNEL.zip"
 
 MANIFESTE = {
@@ -109,15 +112,23 @@ def identifiant(nom):
 
 
 def main():
+    a = argparse.ArgumentParser(description="Emballe les neuf voix de Night City.")
+    a.add_argument("--source", default=SOURCE, help="le dossier des .wav extraits")
+    args = a.parse_args()
+
+    if not args.source:
+        raise SystemExit(
+            "ou sont les voix ? Donne --source <dossier>, ou pose VENTRILOQUE_VOIX_CP77."
+        )
     os.makedirs("packs-a-distribuer", exist_ok=True)
-    manquantes = [f for f in CAST if not os.path.isfile(os.path.join(SOURCE, f))]
+    manquantes = [f for f in CAST if not os.path.isfile(os.path.join(args.source, f))]
     if manquantes:
-        raise SystemExit(f"voix introuvables dans {SOURCE} : {', '.join(manquantes)}")
+        raise SystemExit(f"voix introuvables dans {args.source} : {', '.join(manquantes)}")
 
     with zipfile.ZipFile(CIBLE, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("pack.json", json.dumps(MANIFESTE, ensure_ascii=False, indent=2))
         for fichier, (nom, repliques) in sorted(CAST.items()):
-            z.write(os.path.join(SOURCE, fichier), "voix/" + fichier)
+            z.write(os.path.join(args.source, fichier), "voix/" + fichier)
             fiche = {
                 "id": identifiant(nom),
                 "nom": nom,
@@ -136,7 +147,7 @@ def main():
         print(f"  {nom:<20} {fichier}")
 
     inattendues = sorted(
-        os.path.basename(w) for w in glob.glob(os.path.join(SOURCE, "*.wav"))
+        os.path.basename(w) for w in glob.glob(os.path.join(args.source, "*.wav"))
         if os.path.basename(w) not in CAST
     )
     if inattendues:

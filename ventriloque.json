@@ -1,3 +1,3 @@
 {
-  "modeles": "C:/Users/sebaj/Documents/CP77_mods/ai_npc-holo/models/fr-cloning"
+  "_": "Ce fichier marque la racine des donnees : Ventriloque le cherche en remontant depuis son executable. Il peut rester tel quel. Le champ facultatif \"modeles\" nomme un autre dossier que modeles\\ -- utile pour partager un demi-gigaoctet entre plusieurs copies du depot. Ce n'est qu'un indice : un chemin qui ne repond pas est ignore, et modeles\\ reprend la main."
 }

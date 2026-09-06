@@ -15,7 +15,7 @@ use rodio::stream::DeviceSinkBuilder;
 use rodio::Player;
 use std::collections::VecDeque;
 use std::num::NonZero;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError, channel};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
@@ -25,6 +25,10 @@ pub enum Ordre {
     Jouer(Flux),
     // Le silence tout de suite : ce qui joue s'arrete et ce qui attendait est jete.
     Taire,
+    // Suspendre et reprendre la ou l'on en etait. Le calcul, lui, continue : il remplit le
+    // tampon de la replique en cours pendant la pause, et rien ne se perd.
+    Pause,
+    Reprendre,
     // Rouvrir sur un autre peripherique, par son rang dans `peripheriques()`.
     Peripherique(usize),
 }
@@ -73,6 +77,18 @@ impl Sortie {
                     Ordre::Taire => {
                         if let Some(l) = &lecteur {
                             l.clear();
+                            // `clear` laisse le lecteur en pause : sans ce `play`, la replique
+                            // suivante serait mise en file et n'en sortirait jamais.
+                            l.play();
+                        }
+                    }
+                    Ordre::Pause => {
+                        if let Some(l) = &lecteur {
+                            l.pause();
+                        }
+                    }
+                    Ordre::Reprendre => {
+                        if let Some(l) = &lecteur {
                             l.play();
                         }
                     }
@@ -127,11 +143,48 @@ fn ouvrir(rang: usize) -> Result<Player> {
 // ferait craquer la carte son. Quand le morceau suivant n'est pas encore la, on rend du silence
 // -- inaudible, et le son reprend des qu'il arrive. C'est aussi ce qui couvre proprement le
 // premier clonage d'une voix, qui prend plusieurs secondes.
+// CE QU'ON SAIT D'UNE REPLIQUE PENDANT QU'ELLE JOUE.
+//
+// Deux comptes, et ils ne mesurent pas la meme chose. `produits` est ce que la synthese a
+// fabrique ; `sortis` est ce qui est REELLEMENT passe dans le haut-parleur. Le moteur fabrique
+// environ trois fois plus vite qu'on n'ecoute, donc les deux ne se rejoignent qu'a la fin.
+//
+// C'est ce qui permet de dire la verite plutot que de l'estimer : `sortis == 0` veut dire que
+// rien n'a encore ete entendu -- la voix se prepare -- et non « il s'est ecoule moins de
+// 250 ms ». La duree totale, elle, n'est connue qu'une fois `fini` pose : avant, `produits`
+// grandit encore, et un pourcentage calcule dessus reculerait a chaque morceau qui arrive.
+#[derive(Default)]
+pub struct Avancement {
+    produits: AtomicUsize,
+    sortis: AtomicUsize,
+    fini: AtomicBool,
+}
+
+impl Avancement {
+    pub fn produits(&self, combien: usize) {
+        self.produits.fetch_add(combien, Ordering::Relaxed);
+    }
+
+    pub fn terminer(&self) {
+        self.fini.store(true, Ordering::Relaxed);
+    }
+
+    /// Echantillons sortis, echantillons fabriques, et si la fabrication est finie.
+    pub fn lire(&self) -> (usize, usize, bool) {
+        (
+            self.sortis.load(Ordering::Relaxed),
+            self.produits.load(Ordering::Relaxed),
+            self.fini.load(Ordering::Relaxed),
+        )
+    }
+}
+
 pub struct Flux {
     morceaux: Receiver<Vec<f32>>,
     tampon: VecDeque<f32>,
     abandon: Arc<AtomicBool>,
     sorti: Sorti,
+    avancement: Arc<Avancement>,
 }
 
 // SAVOIR QUAND LE SON EST SORTI, et pas seulement quand le calcul est fini.
@@ -182,13 +235,22 @@ impl Iterator for Flux {
             return None;
         }
         if let Some(e) = self.tampon.pop_front() {
+            self.avancement.sortis.fetch_add(1, Ordering::Relaxed);
             return Some(e);
         }
         match self.morceaux.try_recv() {
             Ok(morceau) => {
                 self.tampon.extend(morceau);
-                self.tampon.pop_front().or(Some(0.0))
+                match self.tampon.pop_front() {
+                    Some(e) => {
+                        self.avancement.sortis.fetch_add(1, Ordering::Relaxed);
+                        Some(e)
+                    }
+                    None => Some(0.0),
+                }
             }
+            // LE SILENCE D'ATTENTE NE COMPTE PAS. Il est joue, mais ce n'est pas de la replique :
+            // le compter avancerait la barre pendant que la voix se clone, sans qu'on entende rien.
             Err(TryRecvError::Empty) => Some(0.0),
             // Le producteur a lache le canal : la replique est finie.
             Err(TryRecvError::Disconnected) => None,
@@ -213,9 +275,16 @@ impl rodio::Source for Flux {
     }
 }
 
-pub fn flux(abandon: Arc<AtomicBool>) -> (Sender<Vec<f32>>, Flux, Sorti) {
+pub fn flux(abandon: Arc<AtomicBool>) -> (Sender<Vec<f32>>, Flux, Sorti, Arc<Avancement>) {
     let (envoi, reception) = channel();
     let sorti = Sorti::neuf();
-    let flux = Flux { morceaux: reception, tampon: VecDeque::new(), abandon, sorti: sorti.clone() };
-    (envoi, flux, sorti)
+    let avancement = Arc::new(Avancement::default());
+    let flux = Flux {
+        morceaux: reception,
+        tampon: VecDeque::new(),
+        abandon,
+        sorti: sorti.clone(),
+        avancement: avancement.clone(),
+    };
+    (envoi, flux, sorti, avancement)
 }

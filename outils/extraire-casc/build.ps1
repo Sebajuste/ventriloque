@@ -9,12 +9,12 @@
 
 $ErrorActionPreference = "Stop"
 $ici = $PSScriptRoot
-$casclib = Join-Path $ici "vendor\CascLib"
+$casclib = Join-Path (Split-Path -Parent $ici) "fabriquer\vendor\CascLib"
 $obj = Join-Path $ici "obj"
 $exe = Join-Path $ici "extraire-casc.exe"
 
 if (-not (Test-Path (Join-Path $casclib "sources-cpp.cpp"))) {
-    throw "CascLib absent. Depuis $ici : git clone --depth 1 https://github.com/ladislav-zezula/CascLib.git vendor\CascLib"
+    throw "CascLib absente. Depuis outils\fabriquer : git clone --depth 1 https://github.com/ladislav-zezula/CascLib.git vendor\CascLib"
 }
 
 # cl.exe n'est pas dans le PATH : c'est vcvars64 qui l'y met, et vswhere qui trouve vcvars64.

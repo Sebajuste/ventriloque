@@ -85,7 +85,7 @@ fn frames_apres_eos(modeles: &Path) -> i32 {
 //
 // Le descripteur est volontairement abandonne : sa fermeture par le systeme EST le mecanisme.
 #[cfg(windows)]
-fn lier_a_notre_vie(enfant: &Child) {
+pub fn lier_a_notre_vie(enfant: &Child) {
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::System::JobObjects::{
         AssignProcessToJobObject, CreateJobObjectW, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
@@ -194,6 +194,7 @@ impl Moteur {
         texte: &str,
         vers: Sender<Vec<f32>>,
         abandon: Arc<AtomicBool>,
+        avancement: &crate::audio::Avancement,
     ) -> Result<()> {
         let corps = serde_json::json!({ "text": texte, "voice": voix });
         let mut reponse = reqwest::blocking::Client::new()
@@ -230,6 +231,8 @@ impl Moteur {
                 .map(|o| f32::from_le_bytes([o[0], o[1], o[2], o[3]]))
                 .collect();
             reste.drain(..entiers);
+            // Compte AVANT l'envoi : une fois parti, le morceau ne nous appartient plus.
+            avancement.produits(morceau.len());
             // Le destinataire est parti : la replique n'interesse plus personne.
             if vers.send(morceau).is_err() {
                 return Ok(());

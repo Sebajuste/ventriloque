@@ -17,6 +17,9 @@ use std::path::{Path, PathBuf};
 
 const MOTEUR: &[u8] = include_bytes!("../binaries/pocket-tts-x86_64-pc-windows-msvc.exe");
 const RUNTIME: &[u8] = include_bytes!("../binaries/onnxruntime.dll");
+// Le fabricant : il porte CascLib et le moteur de script, et fait tourner les recettes des
+// paquets hors de ce processus. Voir `recette.rs`.
+const FABRICANT: &[u8] = include_bytes!("../binaries/fabriquer.exe");
 
 // Ecrit seulement si le fichier manque ou n'a pas la bonne taille. La taille suffit comme
 // controle : ces deux fichiers ne changent qu'avec une version de Ventriloque, et une version
@@ -28,6 +31,12 @@ fn poser(cible: &Path, contenu: &[u8]) -> Result<()> {
     std::fs::write(cible, contenu).with_context(|| format!("ecriture de {}", cible.display()))
 }
 
+// Le fabricant, pose a cote du moteur. Nomme ici pour que `recette.rs` n'ait pas a redire ou
+// il vit.
+pub fn fabricant(racine: &Path) -> PathBuf {
+    racine.join("moteur").join("fabriquer.exe")
+}
+
 // Rend le chemin du moteur, pose a cote de l'executable.
 pub fn deployer(racine: &Path) -> Result<PathBuf> {
     let dossier = racine.join("moteur");
@@ -35,6 +44,7 @@ pub fn deployer(racine: &Path) -> Result<PathBuf> {
 
     let exe = dossier.join("pocket-tts.exe");
     poser(&exe, MOTEUR)?;
+    poser(&dossier.join("fabriquer.exe"), FABRICANT)?;
     // La bibliotheque ONNX doit etre A COTE de l'executable qui la charge, pas ailleurs : c'est
     // le dossier de l'image qui est cherche en premier.
     poser(&dossier.join("onnxruntime.dll"), RUNTIME)?;

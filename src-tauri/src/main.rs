@@ -15,7 +15,9 @@ mod embarque;
 mod engine;
 mod fiches;
 mod forge;
+mod jeux;
 mod packs;
+mod recette;
 mod stretch;
 
 use audio::{Ordre, Sortie};
@@ -43,6 +45,12 @@ struct App {
     // Ce que le moteur a refuse de faire au demarrage, dit en francais. Vide quand tout va bien.
     panne: Mutex<String>,
     sortie: Sortie,
+    // L'avancement de la replique EN COURS, et il n'y en a qu'une : la fenetre ne confie au
+    // lecteur qu'une replique a la fois, donc un seul emplacement dit toujours de qui l'on parle.
+    avancement: Arc<Mutex<Option<Arc<audio::Avancement>>>>,
+    // L'avancement de l'operation en cours sur les paquets. Un seul emplacement : les boutons
+    // se ferment pendant qu'elle tourne, donc il n'y en a jamais deux.
+    chantier: Arc<packs::Chantier>,
     peripherique: Mutex<usize>,
     // Choisi au demarrage, une fois : le moteur ecoute dessus tant que l'application vit.
     port: u16,
@@ -136,13 +144,20 @@ async fn parler(app: State<'_, App>, reference: String, texte: String) -> Result
     // Une nouvelle replique leve la marque : sans cela, une replique demandee apres un Silence
     // serait coupee avant d'avoir commence.
     app.abandon.store(false, Ordering::Relaxed);
+    // VIDER L'EMPLACEMENT TOUT DE SUITE, et pas dans le fil qui suit. Entre cet appel et le
+    // demarrage du fil, la fenetre interroge l'avancement : elle lirait celui de la replique
+    // PRECEDENTE, terminee, et la barre afficherait un instant « fini » pour une replique qui
+    // n'a pas commence.
+    *app.avancement.lock().unwrap() = None;
 
     let moteur = app.moteur.clone();
     let abandon = app.abandon.clone();
     let canal = app.sortie.canal();
+    let emplacement = app.avancement.clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        let (vers, flux, sorti) = audio::flux(abandon.clone());
+        let (vers, flux, sorti, avancement) = audio::flux(abandon.clone());
+        *emplacement.lock().unwrap() = Some(avancement.clone());
         // La source part AVANT la synthese : elle rend du silence en attendant le premier
         // morceau, et le son commence a l'instant ou il arrive.
         let _ = canal.send(Ordre::Jouer(flux));
@@ -153,10 +168,14 @@ async fn parler(app: State<'_, App>, reference: String, texte: String) -> Result
         {
             let garde = moteur.lock().map_err(|_| "la voie de parole est cassee".to_string())?;
             match garde.as_ref() {
-                Some(m) => m.dire_en_flux(&reference, &texte, vers, abandon).map_err(|e| e.to_string())?,
+                Some(m) => m
+                    .dire_en_flux(&reference, &texte, vers, abandon, &avancement)
+                    .map_err(|e| e.to_string())?,
                 None => return Err("le moteur de parole n'est pas demarre".to_string()),
             }
         }
+        // La duree totale n'est connue qu'ici : avant, `produits` grandissait encore.
+        avancement.terminer();
 
         // Puis on attend que le son soit REELLEMENT sorti. Rendre la main a la fin du calcul
         // ferait annoncer « plus rien en file » pendant que le personnage parle encore.
@@ -167,10 +186,89 @@ async fn parler(app: State<'_, App>, reference: String, texte: String) -> Result
     .map_err(|e| e.to_string())?
 }
 
+// CE QUI EST SORTI DU HAUT-PARLEUR, EN MILLISECONDES.
+//
+// Interroge par la fenetre pendant qu'une replique joue. `duree` vaut zero tant que la synthese
+// n'a pas fini : donner un pourcentage avant serait mentir, puisque le denominateur grandit
+// encore et que la barre reculerait a chaque morceau qui arrive.
+#[derive(Serialize, specta::Type, Default)]
+struct Avance {
+    position: u32,
+    duree: u32,
+    /// La duree est connue : la barre peut devenir une vraie proportion.
+    complete: bool,
+    /// Au moins un echantillon de la replique est passe. Avant, la voix se prepare.
+    entendue: bool,
+}
+
+#[tauri::command]
+#[specta::specta]
+fn avancement(app: State<App>) -> Avance {
+    let garde = app.avancement.lock().unwrap();
+    let Some(a) = garde.as_ref() else {
+        return Avance::default();
+    };
+    let (sortis, produits, fini) = a.lire();
+    let ms = |echantillons: usize| (echantillons as u64 * 1000 / engine::SORTIE as u64) as u32;
+    Avance {
+        position: ms(sortis),
+        duree: if fini { ms(produits) } else { 0 },
+        complete: fini,
+        entendue: sortis > 0,
+    }
+}
+
+// Ou en est l'operation sur les paquets, lue par la fenetre a intervalle.
+//
+// `total` a zero veut dire « en cours, sans compte connu » : c'est le cas d'une fabrication, dont
+// on ignore le nombre d'etapes avant qu'elle les annonce.
+#[derive(Serialize, specta::Type, Default)]
+struct AvancePack {
+    actif: bool,
+    #[specta(type = u32)]
+    faits: usize,
+    #[specta(type = u32)]
+    total: usize,
+    /// Le fichier ou l'etape en cours, tel quel : la fenetre l'affiche sans l'interpreter.
+    quoi: String,
+    /// Ce qui a ete fait jusqu'ici, ligne a ligne. La fenetre le montre pendant l'operation, et
+    /// pas seulement a la fin : sur une fabrication de trois minutes, c'est la seule preuve que
+    /// quelque chose avance.
+    journal: Vec<String>,
+}
+
+#[tauri::command]
+#[specta::specta]
+fn avancement_pack(app: State<App>) -> AvancePack {
+    let (actif, faits, total, quoi) = app.chantier.lire();
+    AvancePack { actif, faits, total, quoi, journal: app.chantier.journal() }
+}
+
+// SUSPENDRE N'EST PAS COUPER. `Taire` jette la replique ; `Pause` la garde ou elle en est, et
+// le calcul continue de remplir son tampon pendant ce temps. C'est le geste d'une table qui
+// s'interrompt -- quelqu'un pose une question, on reprend la phrase la ou elle etait.
+//
+// Il n'y a pas de commande « suivant » ici, et ce n'est pas un oubli : la fenetre ne confie
+// qu'UNE replique a la fois au lecteur, donc passer a la suivante, c'est couper celle-ci et
+// laisser la file de la fenetre engager la prochaine. Un `skip_one` ferait exactement pareil
+// pour un ordre de plus.
+#[tauri::command]
+#[specta::specta]
+fn pause(app: State<App>) {
+    app.sortie.ordonner(Ordre::Pause);
+}
+
+#[tauri::command]
+#[specta::specta]
+fn reprendre(app: State<App>) {
+    app.sortie.ordonner(Ordre::Reprendre);
+}
+
 #[tauri::command]
 #[specta::specta]
 fn taire(app: State<App>) {
     app.abandon.store(true, Ordering::Relaxed);
+    *app.avancement.lock().unwrap() = None;
     app.sortie.ordonner(Ordre::Taire);
 }
 
@@ -334,22 +432,134 @@ fn allumer(app: &App) {
 
 // Installer un paquet : le zip est choisi ici, comme les sons de l'atelier, parce que la page
 // n'a pas de quoi ouvrir un selecteur de fichiers.
+// UNE COMMANDE SYNCHRONE TOURNE SUR LE FIL DE LA FENETRE, et un paquet de modeles pese 258 Mo :
+// le decompresser la figeait pour une minute, souris comprise. `async` la met sur l'executeur, et
+// `spawn_blocking` sort la decompression elle-meme des fils de l'executeur -- qui ne sont pas
+// faits pour du travail long.
+//
+// Le selecteur de fichiers reste ici, avant : c'est une fenetre modale du systeme, elle n'a rien
+// a faire dans un fil de travail.
 #[tauri::command]
 #[specta::specta]
-fn installer_pack(app: State<App>, fenetre: tauri::Window) -> Result<String, String> {
+async fn installer_pack(app: State<'_, App>, fenetre: tauri::Window) -> Result<String, String> {
     use tauri_plugin_dialog::DialogExt;
     let Some(zip) = fenetre.dialog().file().add_filter("paquets", &["zip"]).blocking_pick_file() else {
         return Ok(String::new());
     };
     let chemin = zip.into_path().map_err(|e| e.to_string())?;
-    let manifeste = packs::installer(&app.racine, &chemin).map_err(|e| e.to_string())?;
+
+    let racine = app.racine.clone();
+    let chantier = app.chantier.clone();
+    let manifeste = tauri::async_runtime::spawn_blocking(move || {
+        let issue = packs::installer(&racine, &chemin, &chantier);
+        // Quoi qu'il arrive : la fenetre ne doit pas rester sur une barre qui n'avance plus.
+        chantier.finir();
+        issue.map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
 
     // Un paquet de modeles rend souvent parlant ce qui ne l'etait pas : on retente tout de suite.
     let apporte_des_modeles = manifeste.fichiers.iter().any(|f| f.starts_with("modeles/"));
     if apporte_des_modeles && app.moteur.lock().unwrap().is_none() {
         allumer(&app);
     }
+    // Un paquet-recette n'apporte rien tant qu'on ne l'a pas fabrique : le dire tout de suite
+    // evite de chercher des voix qui n'existent pas encore.
+    if manifeste.a_fabriquer() {
+        return Ok(format!(
+            "{} installe : recette posee, reste a fabriquer depuis une copie du jeu",
+            manifeste.nom
+        ));
+    }
     Ok(format!("{} installe : {} fichier(s)", manifeste.nom, manifeste.fichiers.len()))
+}
+
+// Fabriquer un paquet-recette : le faire tourner sur une copie installee du jeu.
+//
+// LE GESTE EST EXPLICITE, ET C'EST LE POINT. Un paquet-recette s'installe sans que rien ne
+// s'execute ; c'est ce bouton, et lui seul, qui lance un script venu d'ailleurs. On demande donc
+// d'abord ou est le jeu -- ce qui fait aussi office de confirmation.
+//
+// Bloquant, deux a quatre minutes : c'est la meme facon de faire que `forger` et `prechauffer`,
+// qui rendent leur compte rendu a la fin plutot que de tenir un fil de progression.
+#[tauri::command]
+#[specta::specta]
+async fn fabriquer_pack(
+    app: State<'_, App>,
+    fenetre: tauri::Window,
+    pack: String,
+    choisir: bool,
+) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let mut manifeste = packs::installes(&app.racine)
+        .into_iter()
+        .find(|m| m.nom == pack)
+        .ok_or_else(|| format!("paquet inconnu : {pack}"))?;
+    if manifeste.recette.is_empty() {
+        return Err(format!("« {pack} » ne porte pas de recette a fabriquer"));
+    }
+
+    // Le dossier du jeu : trouve tout seul quand c'est possible, demande sinon. `choisir`
+    // force la question -- c'est la sortie de secours quand la detection tombe sur la mauvaise
+    // installation, ou sur aucune.
+    let jeu = match (choisir, jeux::trouver(&manifeste.produit)) {
+        (false, Some(trouve)) => trouve,
+        _ => {
+            let Some(dossier) = fenetre.dialog().file().blocking_pick_folder() else {
+                return Ok(String::new());
+            };
+            dossier.into_path().map_err(|e| e.to_string())?
+        }
+    };
+
+    let racine = app.racine.clone();
+    let fabricant = embarque::fabricant(&app.racine);
+    let chantier = app.chantier.clone();
+    let rapport = tauri::async_runtime::spawn_blocking(move || {
+        // Sans compte connu : le fils annonce ses etapes au fur et a mesure, il ne les compte pas
+        // d'avance. La fenetre montre donc la derniere ligne, pas une proportion.
+        chantier.commencer("recensement du stockage…", 0);
+        chantier.poser(&format!("jeu lu dans {}", jeu.display()));
+        let issue = recette::fabriquer(&racine, &fabricant, &mut manifeste, &jeu, &chantier);
+        chantier.finir();
+        issue.map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    Ok(format!(
+        "{}
+{} fichier(s) posé(s) : {}",
+        rapport.journal.join("
+"),
+        rapport.poses.len(),
+        rapport.poses.join(", ")
+    ))
+}
+
+// Retirer un paquet : ses fichiers et son inscription.
+//
+// Il n'y a pas de confirmation ici. Elle est dans la page, ou un premier clic arme le bouton et
+// un second efface : une boite de dialogue de plus se clique sans la lire.
+#[tauri::command]
+#[specta::specta]
+async fn desinstaller_pack(app: State<'_, App>, pack: String) -> Result<String, String> {
+    // Asynchrone comme l'installation, et pour la meme raison : sur le fil de la fenetre, le
+    // battement qui lit l'avancement ne tournerait pas, et la barre du retrait resterait figee
+    // a zero jusqu'a ce que tout soit fini.
+    let racine = app.racine.clone();
+    let chantier = app.chantier.clone();
+    let nom = pack.clone();
+    let efface = tauri::async_runtime::spawn_blocking(move || {
+        let issue = packs::desinstaller(&racine, &nom, &chantier);
+        chantier.finir();
+        issue.map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    Ok(format!("{pack} retiré : {efface} fichier(s) effacé(s)"))
 }
 
 // LE CONTRAT AVEC L'INTERFACE, DECLARE UNE FOIS.
@@ -363,13 +573,19 @@ fn contrat() -> tauri_specta::Builder<tauri::Wry> {
         etat,
         parler,
         taire,
+        avancement,
+        avancement_pack,
+        pause,
+        reprendre,
         choisir_peripherique,
         forger,
         choisir_fichiers,
         ecrire_fiche,
         supprimer_fiche,
         prechauffer,
-        installer_pack
+        installer_pack,
+        fabriquer_pack,
+        desinstaller_pack
     ])
 }
 
@@ -395,6 +611,8 @@ fn main() {
                 panne: Mutex::new(String::new()),
                 abandon: Arc::new(AtomicBool::new(false)),
                 sortie: Sortie::demarrer(),
+                avancement: Arc::new(Mutex::new(None)),
+                chantier: Arc::new(packs::Chantier::default()),
                 peripherique: Mutex::new(audio::peripherique_defaut()),
                 port: engine::port_libre(),
             };
@@ -428,21 +646,101 @@ fn main() {
 
 // Ou sont les modeles. Ils pesent un demi-gigaoctet et viennent d'un depot sur liste
 // d'autorisation : ils ne sont pas dans le depot, ils sont designes.
+// Ou sont les modeles.
+//
+// PAR DEFAUT, `modeles\` A COTE DES DONNEES -- ce que le paquet moteur remplit, et le seul
+// endroit qui existe sur une machine neuve. Une installation se copie donc telle quelle.
+//
+// `ventriloque.json` peut nommer un autre dossier, ce qui sert pendant le developpement pour
+// partager un demi-gigaoctet entre plusieurs copies du depot. MAIS CE N'EST QU'UN INDICE : un
+// chemin qui ne repond pas est ignore, pas suivi. Sans cela, un `ventriloque.json` copie d'une
+// machine a l'autre rendrait l'application muette en pointant un dossier qui n'existe que chez
+// l'autre -- et le message parlerait d'un chemin inconnu de celui qui le lit.
 fn lire_modeles(racine: &std::path::Path) -> PathBuf {
     #[derive(serde::Deserialize)]
     struct Reglages {
+        #[serde(default)]
         modeles: String,
     }
-    std::fs::read_to_string(racine.join("ventriloque.json"))
+    let defaut = racine.join("modeles");
+    let indique = std::fs::read_to_string(racine.join("ventriloque.json"))
         .ok()
         .and_then(|s| serde_json::from_str::<Reglages>(&s).ok())
-        .map(|r| PathBuf::from(r.modeles))
-        .unwrap_or_else(|| racine.join("modeles"))
+        .map(|r| r.modeles)
+        .filter(|m| !m.trim().is_empty())
+        .map(PathBuf::from);
+
+    match indique {
+        Some(ailleurs) if ailleurs.is_dir() => ailleurs,
+        _ => defaut,
+    }
+}
+
+// Un chemin de modeles qui ne repond pas ne doit pas rendre l'application muette : c'est ce qui
+// arrive des qu'un `ventriloque.json` passe d'une machine a l'autre.
+#[cfg(test)]
+mod modeles {
+    use std::path::PathBuf;
+
+    fn racine_jetable(nom: &str) -> PathBuf {
+        let n = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_nanos();
+        let p = std::env::temp_dir().join(format!("ventriloque-modeles-{n}-{nom}"));
+        std::fs::create_dir_all(&p).unwrap();
+        p
+    }
+
+    #[test]
+    fn sans_reglages_ce_sont_les_modeles_du_dossier() {
+        let racine = racine_jetable("nu");
+        assert_eq!(super::lire_modeles(&racine), racine.join("modeles"));
+        let _ = std::fs::remove_dir_all(&racine);
+    }
+
+    #[test]
+    fn un_renvoi_vivant_est_suivi() {
+        let racine = racine_jetable("vivant");
+        let ailleurs = racine.join("autre-part");
+        std::fs::create_dir_all(&ailleurs).unwrap();
+        std::fs::write(
+            racine.join("ventriloque.json"),
+            format!("{{\"modeles\": {:?}}}", ailleurs.to_string_lossy()),
+        )
+        .unwrap();
+
+        assert_eq!(super::lire_modeles(&racine), ailleurs);
+        let _ = std::fs::remove_dir_all(&racine);
+    }
+
+    #[test]
+    fn un_renvoi_mort_est_ignore_au_lieu_d_etre_suivi() {
+        let racine = racine_jetable("mort");
+        std::fs::write(
+            racine.join("ventriloque.json"),
+            r#"{"modeles": "Z:/une/machine/qui/n/est/pas/celle-ci"}"#,
+        )
+        .unwrap();
+
+        assert_eq!(super::lire_modeles(&racine), racine.join("modeles"));
+        let _ = std::fs::remove_dir_all(&racine);
+    }
+
+    // Le fichier sert aussi de reperage de la racine : il peut exister sans rien regler.
+    #[test]
+    fn un_fichier_vide_reste_un_reperage_valable() {
+        let racine = racine_jetable("vide");
+        std::fs::write(racine.join("ventriloque.json"), "{}").unwrap();
+
+        assert_eq!(super::lire_modeles(&racine), racine.join("modeles"));
+        let _ = std::fs::remove_dir_all(&racine);
+    }
 }
 
 // Le contrat, ecrit.
 //
-// C'EST UN TEST ET PAS UN SCRIPT, parce que `cargo test` tourne deja dans `outils/build.ps1`,
+// C'EST UN TEST ET PAS UN SCRIPT, parce que `cargo test` tourne deja dans `outils/preparer.ps1`,
 // avant la compilation du binaire : le lien ne peut pas etre oublie. Le fichier produit est
 // versionne, et l'integration echoue si `git diff` le trouve modifie -- ce qui veut alors dire
 // que quelqu'un a change une commande sans regenerer.
