@@ -51,6 +51,9 @@ npm run build          # tsc, vitest, vite, puis cargo, sans installateur
 qui compte — lisez son en-tête avant d'y toucher. L'intégration continue rejoue le même
 ordre : voir [docs/publication.md](docs/publication.md).
 
+Le travail se fait sur `develop` ou sur une branche qui en part. `main` ne reçoit que des
+fusions, et chacune peut publier une release.
+
 Le fabricant de paquets a besoin de deux dépôts tiers, clonés sur place :
 
 ```

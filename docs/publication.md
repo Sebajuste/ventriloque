@@ -7,34 +7,70 @@ correctif n'atteint personne.
 Ce document décrit le chemin complet : ce qui déclenche une publication, ce que la CI
 vérifie avant, et ce qu'il faut avoir renseigné une fois pour toutes.
 
+## Deux branches
+
+`develop` intègre, `main` publie. Le travail se fait sur `develop` ou sur une branche qui
+en part ; `main` ne reçoit que des fusions, et chacune est une publication potentielle.
+
+`main` est protégée : pas de poussée directe, pas de suppression, pas de force, et le
+statut `check` — le job de [`ci.yml`](../.github/workflows/ci.yml) — doit être vert avant
+qu'une pull request puisse être fusionnée. Ce n'est pas de la cérémonie : une fusion vers
+`main` déclenche une compilation Rust complète et, si la version a changé, pose une mise à
+jour chez tout le monde. Ce qui part de là ne se rattrape pas.
+
 ## Ce qui déclenche une publication
 
 **Le numéro de version de [`tauri.conf.json`](../src-tauri/tauri.conf.json), pas le
 commit.** [`release.yml`](../.github/workflows/release.yml) se déclenche à chaque poussée
-sur `master`, mais s'arrête aussitôt si le tag `v<version>` existe déjà.
+sur `main`, mais s'arrête aussitôt si le tag `v<version>` existe déjà. Fusionner une
+correction sans bumper ne publie donc rien.
 
-Publier revient donc à un seul geste :
+Publier revient à un seul geste, sur `develop` :
 
 ```
-# bumper "version" dans src-tauri/tauri.conf.json, puis
-git commit -am "v0.2.0" && git push
+npm run bump minor        # ou patch, major, ou un numéro explicite : 0.2.0
 ```
+
+Trois fichiers portent le numéro — `tauri.conf.json`, `Cargo.toml`, `package.json`. Seul
+le premier décide : le codegen de Tauri n'utilise `CARGO_PKG_VERSION` que si le champ y est
+absent. Les deux autres n'en suivent pas moins, et la CI échoue s'ils divergent — un dépôt
+qui se contredit sur sa propre version fait douter du reste. `npm run bump` les écrit
+ensemble, par remplacement sur la ligne plutôt que par réécriture du JSON, pour garder un
+diff lisible.
+
+Quel niveau ? Semver, lu du point de vue de celui qui utilise l'application — la question
+n'est pas « l'API change-t-elle » mais « l'utilisateur doit-il faire quelque chose ». Un
+correctif est un *patch*, un ajout rétrocompatible un *minor*, et un *major* se réserve à
+ce qui demande une intervention : des voix à reforger, des fiches à reprendre, un paquet à
+réinstaller.
+
+**Un numéro déjà publié ne se réutilise jamais.** L'updater compare les versions : une
+release qui n'est pas strictement supérieure est invisible pour les installations
+existantes.
+
+Reste à relire le diff, committer, et ouvrir la pull request vers `main` : c'est le merge
+qui publie.
 
 Publier à chaque commit aurait deux coûts : une compilation Rust complète pour une
 correction de typo, et une notification de mise à jour à tout le monde pour la même.
 
 ## L'intégration, avant
 
-[`ci.yml`](../.github/workflows/ci.yml) tourne sur **toutes les branches sauf `master`**,
-et sur les pull requests qui la visent. Sur `windows-latest`, parce que Ventriloque lit le
+[`ci.yml`](../.github/workflows/ci.yml) tourne à chaque poussée sur `develop` et à chaque
+pull request visant `main` ou `develop`. Sur `windows-latest`, parce que Ventriloque lit le
 registre, interroge Battle.net et pilote un moteur `.exe` : il n'y a rien à vérifier
 ailleurs.
+
+Son job s'appelle `check`, et c'est ce nom que la protection de `main` exige. Le job de
+garde de `release.yml` s'appelle `version` pour cette raison : deux contextes homonymes
+seraient une ambiguïté qu'on ne veut pas découvrir en la déboguant.
 
 Elle rejoue ce que [`tools/prepare.ps1`](../tools/prepare.ps1) fait localement, dans le
 même ordre, plus trois contrôles que la compilation seule ne ferait pas :
 
 | Étape | Ce qu'elle attrape |
 |---|---|
+| `npm run check:versions` | un numéro bumpé dans un fichier et oublié dans deux |
 | `cargo fmt --check` | un format qui dérive du reste du dépôt |
 | `cargo clippy --all-targets -D warnings` | du code mort, y compris dans les tests |
 | `cargo test` (src-tauri) | 99 tests, et l'écriture de `bindings.ts` |

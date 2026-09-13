@@ -168,12 +168,18 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&marker).unwrap(), "{ pas du json");
     }
 
-    // LE REPERE DU DEPOT DOIT REVENIR A L'OCTET PRES, et c'est tout l'objet de la separation.
+    // LE REPERE DU DEPOT DOIT REVENIR TEL QUEL, et c'est tout l'objet de la separation.
     //
     // La migration reecrit le fichier avec `to_string_pretty`. Si celui qui est versionne n'a pas
     // exactement cette forme -- une indentation differente, un retour a la ligne final absent --
     // alors le premier demarrage sur une installation d'avant le rendrait « modifie » dans git.
     // On aurait deplace la salissure au lieu de la supprimer.
+    //
+    // AUX FINS DE LIGNE PRES, ET PAS A L'OCTET PRES. `.gitattributes` pose `* text=auto` : la
+    // copie de travail est en CRLF sous Windows, et git normalise en LF avant de comparer. Un
+    // fichier reecrit en LF reste donc propre. Comparer les octets a fait echouer l'integration
+    // sur un fichier dont seuls les sauts de ligne differaient -- plus strict que ce que git
+    // regarde, donc faux.
     #[test]
     fn le_repere_versionne_revient_intact() {
         let versioned =
@@ -190,7 +196,8 @@ mod tests {
 
         super::run(root.path());
 
-        assert_eq!(std::fs::read_to_string(&marker).unwrap(), before);
+        let after = std::fs::read_to_string(&marker).unwrap();
+        assert_eq!(after.replace("\r\n", "\n"), before.replace("\r\n", "\n"));
         assert_eq!(crate::settings::engine(root.path()).temperature, 0.55);
     }
 

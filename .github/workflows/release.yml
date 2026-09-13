@@ -1,21 +1,24 @@
 # Publication d'une release, de son installateur et de son paquet de mise a jour.
 #
 # LE DECLENCHEUR N'EST PAS LE COMMIT MAIS LE NUMERO DE VERSION de `tauri.conf.json`. Publier a
-# chaque poussee sur `master` reviendrait a compiler le Rust pour une correction de typo, et a
+# chaque fusion vers `main` reviendrait a compiler le Rust pour une correction de typo, et a
 # notifier une mise a jour a tout le monde pour la meme. Bumper la version *est* l'acte de
 # publication ; le reste du temps ce workflow s'arrete au premier job.
 name: release
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  check:
+  # `version` et pas `check` : les deux workflows auraient sinon un job homonyme, et la
+  # protection de `main` exige le statut `check`. Deux contextes du meme nom sont une ambiguite
+  # qu'on ne veut pas decouvrir en la debuggant.
+  version:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
@@ -41,8 +44,8 @@ jobs:
           fi
 
   build:
-    needs: check
-    if: needs.check.outputs.publish == 'true'
+    needs: version
+    if: needs.version.outputs.publish == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5

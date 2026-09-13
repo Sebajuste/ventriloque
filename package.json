@@ -10,6 +10,8 @@
     "build:rapide": "set VENTRILOQUE_SANS_TESTS=1 && tauri build --no-bundle",
     "build:installateurs": "tauri build",
     "postbuild": "node tools/deploy.mjs",
+    "bump": "node tools/bump.mjs",
+    "check:versions": "node tools/check-versions.mjs",
     "contrat": "cargo test --manifest-path src-tauri/Cargo.toml bindings",
     "test": "npm --prefix ui run test && cargo test --manifest-path src-tauri/Cargo.toml",
     "verifier": "npm --prefix ui run verifier",

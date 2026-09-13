@@ -8,12 +8,13 @@
 name: ci
 
 on:
-  # Toutes les branches SAUF `master`, qui est celle des releases : ce qui y arrive est deja
-  # passe par ici, et `release.yml` le reverifie avant de publier.
+  # `develop` integre, `main` publie. On garde la premiere sous controle a chaque poussee, et
+  # les deux a chaque pull request -- c'est le statut `check` que la protection de `main` exige
+  # avant d'autoriser la fusion qui declenchera la release.
   push:
-    branches-ignore: [master]
+    branches: [develop]
   pull_request:
-    branches: [master]
+    branches: [main, develop]
 
 jobs:
   check:
@@ -55,6 +56,10 @@ jobs:
 
       - run: npm ci
       - run: npm ci --prefix ui
+
+      # Trois fichiers portent le numero de version. En bumper un et oublier les autres ne
+      # casse rien et n'alerte personne : c'est exactement ce qui doit etre attrape ici.
+      - run: npm run check:versions
 
       # LE FABRICANT AVANT TOUTE COMMANDE CARGO SUR `src-tauri`, et c'est structurel :
       # `embedded.rs` l'avale par `include_bytes!`, et `src-tauri/binaries/pack-builder.exe`
