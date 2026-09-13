@@ -1,7 +1,7 @@
-// Les quatre pages, et rien d'autre.
+// Les cinq pages, et rien d'autre.
 //
 // LES VUES NE CONNAISSENT PAS LE ROUTEUR. Chacune recoit exactement les props dont elle a besoin,
-// et ce sont les quatre adaptateurs ci-dessous qui vont les chercher dans le contexte de la
+// et ce sont les adaptateurs ci-dessous qui vont les chercher dans le contexte de la
 // fenetre. Le detour coute vingt lignes et rend deux choses : une vue se monte seule dans un
 // test, sans routeur autour, et remplacer le routeur un jour ne touchera pas une ligne des pages.
 //
@@ -16,11 +16,12 @@ import { useShell } from "./shell/context";
 import CharactersView from "./views/CharactersView";
 import PacksView from "./views/PacksView";
 import PlayerView from "./views/PlayerView";
+import SettingsView from "./views/SettingsView";
 import WorkshopView from "./views/WorkshopView";
 
 function PlayerPage() {
-  const { snapshot, target, setTarget } = useShell();
-  return <PlayerView snapshot={snapshot} target={target} setTarget={setTarget} />;
+  const { snapshot, reload, target, setTarget } = useShell();
+  return <PlayerView snapshot={snapshot} reload={reload} target={target} setTarget={setTarget} />;
 }
 
 function CharactersPage() {
@@ -38,6 +39,11 @@ function PacksPage() {
   return <PacksView snapshot={snapshot} reload={reload} />;
 }
 
+function SettingsPage() {
+  const { reload } = useShell();
+  return <SettingsView reload={reload} />;
+}
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -46,6 +52,7 @@ export function AppRoutes() {
         <Route path="fiches" element={<CharactersPage />} />
         <Route path="atelier" element={<WorkshopPage />} />
         <Route path="packs" element={<PacksPage />} />
+        <Route path="reglages" element={<SettingsPage />} />
         {/* Une adresse inconnue ramene au player plutot que de laisser une fenetre vide. En
             seance, un `#/` mal forme ne doit pas ressembler a une application qui a plante. */}
         <Route path="*" element={<Navigate to="/" replace />} />

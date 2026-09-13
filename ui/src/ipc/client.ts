@@ -5,7 +5,7 @@
 // `types.ts`.
 
 import { commands } from "./bindings";
-import type { Character, Snapshot } from "./types";
+import type { Character, EngineSettings, EngineTuning, Snapshot } from "./types";
 
 /**
  * Rend a l'appelant la promesse rejetee qu'il attend.
@@ -36,10 +36,30 @@ export const readSnapshot = () => commands.snapshot() as Promise<Snapshot>;
  * Ne se resout que lorsque la replique est SORTIE DU HAUT-PARLEUR, et pas quand son calcul est
  * fini : le moteur fabrique environ trois fois plus vite qu'on n'ecoute. Le son, lui, commence
  * ~150 ms apres l'appel.
+ *
+ * `pace` en pourcent du debit du moteur : la lecture etire le son sans toucher a sa hauteur.
+ *
+ * Rend le numero de la prise, a donner a `replay` pour la redire telle quelle — ou `null` si la
+ * synthese a ete coupee avant sa fin.
  */
-export const speak = async (reference: string, text: string): Promise<void> => {
-  await unwrap(commands.speak(reference, text));
-};
+export const speak = (reference: string, text: string, pace: number): Promise<number | null> =>
+  unwrap(commands.speak(reference, text, pace));
+
+/**
+ * Redit une prise deja entendue, sans le moteur : meme son, sans attente de calcul. Se resout,
+ * comme `speak`, une fois le son sorti.
+ *
+ * La voix, le texte et le debit accompagnent le numero : Rust ne rend la prise que s'ils
+ * correspondent, si bien qu'un numero egare ne peut pas faire parler une autre replique.
+ *
+ * `false` si la prise manque ou ne correspond pas : a refaire avec `speak`.
+ */
+export const replay = (
+  take: number,
+  reference: string,
+  text: string,
+  pace: number,
+): Promise<boolean> => unwrap(commands.replay(take, reference, text, pace));
 
 export const silence = () => commands.silence();
 
@@ -67,6 +87,18 @@ export const selectDevice = (index: number) => commands.selectDevice(index);
  * Rend une ligne de compte rendu par voix.
  */
 export const warmUp = () => unwrap(commands.warmUp());
+
+// ── Les réglages du moteur ──────────────────────────────────────────────────
+
+/** Les réglages en vigueur, et ceux d'origine — la configuration validée en jeu. */
+export const engineSettings = () => commands.engineSettings() as Promise<EngineTuning>;
+
+/**
+ * Enregistre les réglages et RELANCE le moteur, qui ne les lit qu'à son lancement : ~2,5 s.
+ * Rend ce qui a été écrit, ramené dans les bornes du moteur si besoin.
+ */
+export const applyEngineSettings = (settings: EngineSettings) =>
+  unwrap(commands.applyEngineSettings(settings)) as Promise<EngineSettings>;
 
 // ── L'atelier ───────────────────────────────────────────────────────────────
 

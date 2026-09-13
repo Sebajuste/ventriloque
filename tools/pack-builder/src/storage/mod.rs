@@ -75,7 +75,23 @@ impl Storage {
     pub fn read(&self, name: &str) -> Result<Vec<u8>, String> {
         match self {
             Storage::Blizzard(s) => s.read(name),
-            Storage::Redengine(s) => s.read(name),
+            // LE WWISE VORBIS EST RAMENE A DE L'OGG ICI, a la frontiere du stockage.
+            //
+            // `rdar.rs` ne connait que le conteneur -- des octets a un decalage -- et le montage
+            // ne connait que des formats ordinaires : son decodeur n'embarque qu'un lecteur Ogg.
+            // Entre les deux, quelqu'un doit faire la conversion, et c'est le seul endroit qui
+            // voit les deux cotes.
+            //
+            // Le test est fait sur les octets, pas sur le nom : une entree Cyberpunk est
+            // designee par un hash, elle n'a pas d'extension a interroger.
+            Storage::Redengine(s) => {
+                let data = s.read(name)?;
+                if wwise::is_wwise(&data) {
+                    wwise::to_ogg(&data).map_err(|e| format!("{name} : {e}"))
+                } else {
+                    Ok(data)
+                }
+            }
         }
     }
 }

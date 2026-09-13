@@ -41,10 +41,11 @@ RECIPES = {
         # CYBERPUNK N'A PAS DE `.build.info` : il n'est pas de chez Blizzard, et rien a la racine
         # de son installation ne porte un code de produit. Ce champ est donc celui que le
         # fabricant rend une fois les archives ouvertes -- le meme que verifie `product()` dans la
-        # recette -- et non un code lisible avant. Trouver l'installation toute seule demande une
-        # regle propre a REDengine (`archive\\pc\\content`), qui n'est pas encore ecrite du cote
-        # de l'application : le joueur designe son dossier de jeu.
+        # recette -- et non un code lisible avant.
         "product": "cp77",
+        # D'ou le marqueur : ce que l'application cherche pour reconnaitre le dossier avant
+        # d'ouvrir quoi que ce soit. L'executable du jeu, sous son dossier, sans ambiguite.
+        "marker": "bin/x64/Cyberpunk2077.exe",
     },
 }
 

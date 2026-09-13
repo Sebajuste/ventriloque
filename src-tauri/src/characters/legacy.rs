@@ -33,6 +33,7 @@ impl From<LegacyCharacter> for Character {
             universe: old.univers,
             voice: old.voix,
             lines: old.repliques,
+            pace: super::NORMAL_PACE,
         }
     }
 }
@@ -42,10 +43,10 @@ impl From<LegacyCharacter> for Character {
 /// L'ORDRE COMPTE : le format d'aujourd'hui d'abord. Une fiche recente n'a pas de champ `nom`,
 /// donc l'ancien format la lirait en un personnage sans nom plutot que d'echouer.
 pub fn parse(text: &str) -> Option<Character> {
-    if let Ok(character) = serde_json::from_str::<Character>(text) {
-        if !character.name.trim().is_empty() {
-            return Some(character);
-        }
+    if let Ok(character) = serde_json::from_str::<Character>(text)
+        && !character.name.trim().is_empty()
+    {
+        return Some(character);
     }
     serde_json::from_str::<LegacyCharacter>(text)
         .ok()

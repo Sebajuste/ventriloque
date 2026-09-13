@@ -4,7 +4,7 @@
 // forme plus vite qu'il ne se lit — c'est tout l'intérêt — mais un lecteur d'écran, et les tests,
 // ont besoin du mot.
 
-import { Pause, Play, SkipForward, Square } from "lucide-react";
+import { ListX, Pause, Play, SkipForward, Square } from "lucide-react";
 
 import type { SpeechQueue } from "../../speech/useSpeechQueue";
 
@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function TransportBar({ queue, onSpeak }: Props) {
-  const running = queue.queue.length > 0;
+  const running = queue.head !== undefined;
   const paused = queue.state === "paused";
 
   return (
@@ -54,6 +54,18 @@ export function TransportBar({ queue, onSpeak }: Props) {
         onClick={queue.stop}
       >
         <Square size={16} />
+      </button>
+      {/* À l'écart des autres : c'est le seul geste qui efface, et il ne doit pas se prendre pour
+          le Silence voisin d'un clic trop rapide. */}
+      <button
+        type="button"
+        className="icon clear"
+        disabled={queue.lines.length === 0}
+        aria-label="Vider"
+        title="Vider la file — coupe aussi ce qui parle"
+        onClick={queue.clear}
+      >
+        <ListX size={16} />
       </button>
     </div>
   );

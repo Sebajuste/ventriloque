@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 
-import { asMessage, forgeVoice, pickAudioFiles, type Target } from "../ipc";
+import { NORMAL_PACE, asMessage, forgeVoice, pickAudioFiles, type Target } from "../ipc";
 
 interface Props {
   reload: () => Promise<void>;
@@ -51,6 +51,8 @@ export default function WorkshopView({ reload, setTarget }: Props) {
         reference: made,
         kind: "clone",
         lines: [],
+        character: "",
+        pace: NORMAL_PACE,
       });
     } catch (e) {
       announce(asMessage(e), true);

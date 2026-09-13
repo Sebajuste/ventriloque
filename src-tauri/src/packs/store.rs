@@ -23,7 +23,7 @@ pub fn installed(root: &Path) -> Vec<Manifest> {
                 .collect()
         })
         .unwrap_or_default();
-    list.sort_by(|a: &Manifest, b: &Manifest| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    list.sort_by_key(|a| a.name.to_lowercase());
     list
 }
 

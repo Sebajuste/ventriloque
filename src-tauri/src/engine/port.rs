@@ -13,9 +13,7 @@ const FIRST: u16 = 8231;
 const LAST: u16 = 8331;
 
 pub fn free_port() -> u16 {
-    (FIRST..LAST)
-        .find(|port| TcpListener::bind(("127.0.0.1", *port)).is_ok())
-        .unwrap_or(FIRST)
+    (FIRST..LAST).find(|port| TcpListener::bind(("127.0.0.1", *port)).is_ok()).unwrap_or(FIRST)
 }
 
 #[cfg(test)]

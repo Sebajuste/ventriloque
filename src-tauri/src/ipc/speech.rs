@@ -1,12 +1,14 @@
 // Parler, se taire, et dire ou l'on en est.
 
 use serde::Serialize;
-use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Sender;
 use std::time::Duration;
 use tauri::State;
 
 use crate::app::AppState;
-use crate::audio::{OutputCommand, SpeechChannel};
+use crate::audio::{OutputCommand, PlaybackProgress, Said, SpeechChannel};
 use crate::{audio, characters, engine};
 
 /// Le son d'une replique tient largement dans dix minutes : au-dela, on cesse d'attendre pour
@@ -22,17 +24,84 @@ const DRAIN_LIMIT: Duration = Duration::from_secs(600);
 // `spawn_blocking` la met sur le vivier de fils bloquants et l'attend sans rien bloquer : la
 // commande ne rend la main qu'a la fin, donc l'appelant en JavaScript peut simplement l'attendre
 // et recuperer l'erreur au passage. Le SON, lui, a commence bien avant -- des le premier morceau.
+//
+// Rend le numero de la prise, a passer a `replay` pour la redire telle quelle. Rien si la
+// synthese a ete coupee : une prise tronquee ne se redit pas.
 #[tauri::command]
 #[specta::specta]
 pub async fn speak(
     app: State<'_, AppState>,
     reference: String,
     text: String,
-) -> Result<(), String> {
+    pace: u32,
+) -> Result<Option<u32>, String> {
+    let pace = characters::bounded_pace(pace);
     let text = text.trim().to_string();
     if text.is_empty() {
-        return Ok(());
+        return Ok(None);
     }
+    let engine = app.engine.clone();
+    let takes = app.takes.clone();
+
+    voice(&app, move |sink, stop, progress| {
+        // Le verrou du moteur est rendu des la fin du CALCUL, pas de la lecture. C'est ce qui
+        // laisse la replique suivante se fabriquer pendant qu'on ecoute celle-ci -- et c'est
+        // pour ca que le son ne manque jamais de matiere.
+        let mut take = Vec::new();
+        let complete = {
+            let guard = engine.lock().map_err(|_| "la voie de parole est cassee".to_string())?;
+            match guard.as_ref() {
+                Some(e) => e
+                    .speak_streaming(&reference, &text, pace, sink, stop, progress, &mut take)
+                    .map_err(|e| e.to_string())?,
+                None => return Err("le moteur de parole n'est pas demarre".to_string()),
+            }
+        };
+        let said = Said { reference, text, pace };
+        Ok(complete.then(|| takes.lock().unwrap().keep(said, take)))
+    })
+    .await
+}
+
+// REDIRE LA MEME PRISE, SANS LE MOTEUR.
+//
+// Le son est deja la : il part d'un bloc, sans calcul ni tirage au sort.
+//
+// La voix, le texte et le debit accompagnent le numero, et la prise n'est rendue que s'ils
+// correspondent : un numero egare ne peut pas faire parler une autre replique. Rend `false`
+// quand la prise manque ou ne correspond pas -- a l'appelant de la refaire avec `speak`.
+#[tauri::command]
+#[specta::specta]
+pub async fn replay(
+    app: State<'_, AppState>,
+    take: u32,
+    reference: String,
+    text: String,
+    pace: u32,
+) -> Result<bool, String> {
+    // Les memes bornes et le meme elagage que `speak` : sans eux, une prise rangee ne serait
+    // jamais retrouvee.
+    let said =
+        Said { reference, text: text.trim().to_string(), pace: characters::bounded_pace(pace) };
+    let Some(samples) = app.takes.lock().unwrap().get(take, &said) else {
+        return Ok(false);
+    };
+    voice(&app, move |sink, _, progress| {
+        progress.add_produced(samples.len());
+        let _ = sink.send(samples.to_vec());
+        Ok(true)
+    })
+    .await
+}
+
+/// Ouvre une voie vers le haut-parleur, laisse `produce` la remplir, puis attend que le son soit
+/// sorti. Le canal se ferme quand `produce` lache son emetteur : c'est la fin de la replique.
+async fn voice<T: Send + 'static>(
+    app: &AppState,
+    produce: impl FnOnce(Sender<Vec<f32>>, Arc<AtomicBool>, &PlaybackProgress) -> Result<T, String>
+    + Send
+    + 'static,
+) -> Result<T, String> {
     // Une nouvelle replique leve la marque : sans cela, une replique demandee apres un Silence
     // serait coupee avant d'avoir commence.
     app.stop.store(false, Ordering::Relaxed);
@@ -42,7 +111,6 @@ pub async fn speak(
     // n'a pas commence.
     *app.speech.lock().unwrap() = None;
 
-    let engine = app.engine.clone();
     let stop = app.stop.clone();
     let output = app.output.sender();
     let slot = app.speech.clone();
@@ -54,18 +122,7 @@ pub async fn speak(
         // morceau, et le son commence a l'instant ou il arrive.
         let _ = output.send(OutputCommand::Play(stream));
 
-        // Le verrou du moteur est rendu des la fin du CALCUL, pas de la lecture. C'est ce qui
-        // laisse la replique suivante se fabriquer pendant qu'on ecoute celle-ci -- et c'est
-        // pour ca que le son ne manque jamais de matiere.
-        {
-            let guard = engine.lock().map_err(|_| "la voie de parole est cassee".to_string())?;
-            match guard.as_ref() {
-                Some(e) => e
-                    .speak_streaming(&reference, &text, sink, stop, &progress)
-                    .map_err(|e| e.to_string())?,
-                None => return Err("le moteur de parole n'est pas demarre".to_string()),
-            }
-        }
+        let made = produce(sink, stop, &progress)?;
         // La duree totale n'est connue qu'ici : avant, le compte des echantillons produits
         // grandissait encore.
         progress.finish();
@@ -73,7 +130,7 @@ pub async fn speak(
         // Puis on attend que le son soit REELLEMENT sorti. Rendre la main a la fin du calcul
         // ferait annoncer « plus rien en file » pendant que le personnage parle encore.
         drained.wait(DRAIN_LIMIT);
-        Ok(())
+        Ok(made)
     })
     .await
     .map_err(|e| e.to_string())?

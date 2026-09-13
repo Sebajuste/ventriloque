@@ -133,6 +133,8 @@ describe("fabrication", () => {
         reference: "barman.wav",
         kind: "clone",
         lines: [],
+        character: "",
+        pace: 100,
       }),
     );
     expect(reload).toHaveBeenCalledOnce();

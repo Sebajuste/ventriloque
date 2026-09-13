@@ -14,10 +14,7 @@ use rodio::stream::DeviceSinkBuilder;
 
 /// Les peripheriques de sortie, dans l'ordre ou cpal les donne -- celui des rangs.
 fn devices() -> Vec<rodio::cpal::Device> {
-    rodio::cpal::default_host()
-        .output_devices()
-        .map(|d| d.collect())
-        .unwrap_or_default()
+    rodio::cpal::default_host().output_devices().map(|d| d.collect()).unwrap_or_default()
 }
 
 fn name_of(device: &rodio::cpal::Device) -> String {

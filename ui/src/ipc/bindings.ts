@@ -10,7 +10,8 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	snapshot: () => __TAURI_INVOKE<Snapshot>("snapshot"),
-	speak: (reference: string, text: string) => typedError<null, string>(__TAURI_INVOKE("speak", { reference, text })),
+	speak: (reference: string, text: string, pace: number) => typedError<number | null, string>(__TAURI_INVOKE("speak", { reference, text, pace })),
+	replay: (take: number, reference: string, text: string, pace: number) => typedError<boolean, string>(__TAURI_INVOKE("replay", { take, reference, text, pace })),
 	silence: () => __TAURI_INVOKE<void>("silence"),
 	speechProgress: () => __TAURI_INVOKE<SpeechProgress>("speech_progress"),
 	pause: () => __TAURI_INVOKE<void>("pause"),
@@ -26,6 +27,9 @@ export const commands = {
 	buildPack: (pack: string, chooseFolder: boolean) => typedError<string, string>(__TAURI_INVOKE("build_pack", { pack, chooseFolder })),
 	uninstallPack: (pack: string) => typedError<string, string>(__TAURI_INVOKE("uninstall_pack", { pack })),
 	packProgress: () => __TAURI_INVOKE<PackProgress>("pack_progress"),
+	engineSettings: () => __TAURI_INVOKE<EngineTuning>("engine_settings"),
+	/**  Rend les reglages tels qu'ils ont ete ecrits -- ramenes dans leurs bornes si besoin. */
+	applyEngineSettings: (settings: EngineSettings) => typedError<EngineSettings, string>(__TAURI_INVOKE("apply_engine_settings", { settings })),
 };
 
 /* Types */
@@ -45,6 +49,39 @@ export type Character = {
 	 *  ou l'on n'a pas le temps de taper.
 	 */
 	lines?: string[],
+	/**
+	 *  Le debit de parole, en pourcent du debit du moteur. Le moteur n'en a pas : c'est la
+	 *  lecture qui etire le son, sans toucher a sa hauteur. Une fiche sans ce champ parle au
+	 *  debit du moteur.
+	 */
+	pace?: number,
+};
+
+export type EngineSettings = {
+	/**
+	 *  La variance du bruit tire a chaque trame. Plus bas, la voix colle mieux a la reference et
+	 *  varie moins d'une replique a l'autre ; plus haut, elle vit davantage et derive plus.
+	 */
+	temperature?: number | null,
+	/**
+	 *  Les pas de l'echantillonneur par trame. Un pas est le plus rapide ; plusieurs corrigent
+	 *  mieux un tirage malheureux, au prix du calcul.
+	 */
+	lsd_steps?: number,
+	/**  Borne du bruit tire, en ecarts-types. 0 la retire. */
+	noise_clamp?: number | null,
+	/**  Le seuil au-dela duquel le moteur juge la phrase finie. Plus bas, il coupe plus tot. */
+	eos_threshold?: number | null,
+	/**  Les trames laissees courir apres la fin de phrase. `None` : ce que dit le paquet de modeles. */
+	eos_extra?: number | null,
+	/**  Les fils de calcul. 0 : la moitie des coeurs -- un seul fil est le pire reglage possible. */
+	threads?: number,
+};
+
+export type EngineTuning = {
+	current: EngineSettings,
+	/**  Les valeurs validees en jeu : ce que le bouton « valeurs d'origine » remet. */
+	defaults: EngineSettings,
 };
 
 export type Manifest = {
@@ -68,6 +105,14 @@ export type Manifest = {
 	 *  CascLib, qui dit « s2 » pour le meme jeu.
 	 */
 	product?: string,
+	/**
+	 *  Le fichier dont la presence signe l'installation, pour les jeux qui ne portent pas de
+	 *  `.build.info` : « bin/x64/Cyberpunk2077.exe ». Chemin RELATIF au dossier du jeu.
+	 * 
+	 *  C'est le paquet qui l'apporte, pas l'application : une recette pour un nouveau jeu ne
+	 *  demande donc aucune modification du code.
+	 */
+	marker?: string,
 	/**  Rempli a l'installation, pas par l'auteur du paquet. */
 	files?: string[],
 	installed_on?: string,

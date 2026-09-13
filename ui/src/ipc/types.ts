@@ -7,6 +7,8 @@
 
 import type {
   Character as RawCharacter,
+  EngineSettings as RawEngineSettings,
+  EngineTuning as RawEngineTuning,
   Manifest as RawManifest,
   Snapshot as RawSnapshot,
   Voice as RawVoice,
@@ -36,6 +38,21 @@ export type Voice = Complete<RawVoice>;
 export type Character = Complete<RawCharacter>;
 export type Manifest = Complete<RawManifest>;
 export type Snapshot = Complete<RawSnapshot>;
+/**
+ * Specta rend les flottants en `number | null` : un NaN s'ecrit `null` en JSON. Il n'en sort
+ * jamais ici -- Rust ramene chaque reglage dans ses bornes, NaN compris, avant de le rendre.
+ */
+type EngineFloats = "temperature" | "noise_clamp" | "eos_threshold";
+export type EngineSettings = Omit<Complete<RawEngineSettings>, EngineFloats> & {
+  [K in EngineFloats]: number;
+};
+export type EngineTuning = Omit<Complete<RawEngineTuning>, "current" | "defaults"> & {
+  current: EngineSettings;
+  defaults: EngineSettings;
+};
+
+/** Le debit du moteur, tel quel, en pourcent. Le meme que `NORMAL_PACE` cote Rust. */
+export const NORMAL_PACE = 100;
 
 /** Qui parle, en ce moment, dans le player. Une fiche et une voix brute y arrivent pareilles. */
 export interface Target {
@@ -43,4 +60,8 @@ export interface Target {
   reference: string;
   kind: VoiceKind | null;
   lines: string[];
+  /** L'identifiant de la fiche, vide pour une voix brute : c'est la que le debit s'enregistre. */
+  character: string;
+  /** Le debit de parole, en pourcent du debit du moteur. */
+  pace: number;
 }

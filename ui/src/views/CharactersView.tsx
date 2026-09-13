@@ -6,6 +6,7 @@
 import { useState } from "react";
 
 import {
+  NORMAL_PACE,
   asMessage,
   deleteCharacter,
   writeCharacter,
@@ -18,7 +19,14 @@ interface Props {
   reload: () => Promise<void>;
 }
 
-const BLANK: Character = { id: "", name: "", universe: "", voice: "", lines: [] };
+const BLANK: Character = {
+  id: "",
+  name: "",
+  universe: "",
+  voice: "",
+  lines: [],
+  pace: NORMAL_PACE,
+};
 
 export default function CharactersView({ snapshot, reload }: Props) {
   const [draft, setDraft] = useState<Character>(BLANK);

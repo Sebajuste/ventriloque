@@ -4,7 +4,30 @@
 // reste a des valeurs qui n'attirent pas l'attention. Un test qui recopie les neuf champs de
 // `Snapshot` ne dit plus lequel compte.
 
-import type { Character, Manifest, Snapshot, SpeechProgress, Voice } from "../ipc";
+import type {
+  Character,
+  EngineSettings,
+  EngineTuning,
+  Manifest,
+  Snapshot,
+  SpeechProgress,
+  Voice,
+} from "../ipc";
+
+/** Les valeurs d'origine, telles que Rust les rend : la configuration validee en jeu. */
+export const ENGINE_DEFAULTS: EngineSettings = {
+  temperature: 0.7,
+  lsd_steps: 1,
+  noise_clamp: 0,
+  eos_threshold: -4,
+  eos_extra: null,
+  threads: 0,
+};
+
+export const tuningOf = (current: Partial<EngineSettings> = {}): EngineTuning => ({
+  current: { ...ENGINE_DEFAULTS, ...current },
+  defaults: ENGINE_DEFAULTS,
+});
 
 export const aVoice = (name: string, over: Partial<Voice> = {}): Voice => ({
   name,
@@ -19,6 +42,7 @@ export const aCharacter = (name: string, over: Partial<Character> = {}): Charact
   universe: "Nulle part",
   voice: `${name.toLowerCase()}.wav`,
   lines: [],
+  pace: 100,
   ...over,
 });
 
@@ -28,6 +52,7 @@ export const aPack = (name: string, over: Partial<Manifest> = {}): Manifest => (
   description: "",
   author: "",
   recipe: "",
+  marker: "",
   game: "",
   product: "",
   files: [],

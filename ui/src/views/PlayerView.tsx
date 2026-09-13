@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { Snapshot, Target } from "../ipc";
+import { asMessage, writeCharacter, type Snapshot, type Target } from "../ipc";
 import { useSpeechQueue } from "../speech/useSpeechQueue";
 import { CastList } from "./player/CastList";
 import { SpeechQueueList } from "./player/SpeechQueueList";
@@ -19,14 +19,22 @@ import { WarmUpButton } from "./player/WarmUpButton";
 
 interface Props {
   snapshot: Snapshot;
+  reload: () => Promise<void>;
   target: Target | null;
   setTarget: (target: Target) => void;
 }
 
-export default function PlayerView({ snapshot, target, setTarget }: Props) {
+/**
+ * Le débit s'écrit dans la fiche une fois le curseur posé, pas à chaque cran : un glissé en
+ * produit une vingtaine, et chacun réécrirait le fichier.
+ */
+const PACE_SAVE_MS = 400;
+
+export default function PlayerView({ snapshot, reload, target, setTarget }: Props) {
   const [text, setText] = useState("");
   const [refusal, setRefusal] = useState("");
   const editor = useRef<HTMLTextAreaElement>(null);
+  const saving = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const queue = useSpeechQueue();
 
@@ -45,7 +53,23 @@ export default function PlayerView({ snapshot, target, setTarget }: Props) {
     if (what === "") return;
 
     setRefusal("");
-    queue.say({ speaker: target.name, reference: target.reference, text: what });
+    queue.say({ speaker: target.name, reference: target.reference, text: what, pace: target.pace });
+  };
+
+  // LE DEBIT APPARTIENT AU PERSONNAGE, et c'est dans sa fiche qu'il se retient. Il s'entend dès
+  // la réplique suivante, sans attendre l'écriture. Une voix brute n'a pas de fiche : son débit
+  // ne vaut que tant qu'on la garde choisie.
+  const changePace = (pace: number) => {
+    if (target === null) return;
+    setTarget({ ...target, pace });
+    const sheet = snapshot.characters.find((c) => c.id === target.character);
+    if (sheet === undefined) return;
+    clearTimeout(saving.current);
+    saving.current = setTimeout(() => {
+      writeCharacter({ ...sheet, id: "", pace }, sheet.id)
+        .then(reload)
+        .catch((e) => setRefusal(asMessage(e)));
+    }, PACE_SAVE_MS);
   };
 
   const pick = (picked: Target) => {
@@ -62,13 +86,32 @@ export default function PlayerView({ snapshot, target, setTarget }: Props) {
       </aside>
 
       <section>
-        <div className="speaker">
-          {target === null ? (
-            "Choisis un personnage ou une voix"
-          ) : (
-            <>
-              <strong>{target.name}</strong> — {describe(target)}
-            </>
+        <div className="speaker-row">
+          <div className="speaker">
+            {target === null ? (
+              "Choisis un personnage ou une voix"
+            ) : (
+              <>
+                <strong>{target.name}</strong> — {describe(target)}
+              </>
+            )}
+          </div>
+          {target !== null && (
+            <label
+              className="pace"
+              title="Étire ou tasse la voix sans changer sa hauteur. Retenu dans la fiche du personnage."
+            >
+              Débit
+              <input
+                type="range"
+                min={70}
+                max={140}
+                step={5}
+                value={target.pace}
+                onChange={(e) => changePace(Number(e.target.value))}
+              />
+              <output>{target.pace} %</output>
+            </label>
           )}
         </div>
 

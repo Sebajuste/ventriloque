@@ -56,7 +56,13 @@ fn safe_file_name(raw: &str) -> Option<String> {
 ///
 /// `extension` dit ce qui a le droit d'atterrir dans quel dossier : une recette ne peut pas
 /// glisser un `.exe` dans `voices\` en le nommant bien.
-fn harvest(work: &Path, root: &Path, from: &str, extension: &str, into: &str) -> Result<Vec<String>> {
+fn harvest(
+    work: &Path,
+    root: &Path,
+    from: &str,
+    extension: &str,
+    into: &str,
+) -> Result<Vec<String>> {
     let source = work.join(from);
     let target = root.join(into);
     std::fs::create_dir_all(&target).ok();
@@ -163,9 +169,12 @@ fn run_builder(
 ) -> Result<Vec<String>> {
     let mut command = Command::new(builder);
     command
-        .arg("--script").arg(script)
-        .arg("--game").arg(game)
-        .arg("--out").arg(work)
+        .arg("--script")
+        .arg(script)
+        .arg("--game")
+        .arg(game)
+        .arg("--out")
+        .arg(work)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 

@@ -23,7 +23,11 @@ body {
   font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
 }
 
-#racine {
+/* LE POINT D'ACCROCHE S'EFFACE. `index.html` pose un `<div id="root">` autour de tout ; sans
+   `display: contents` il serait un enfant de flex ordinaire, dimensionne par son contenu, et
+   la hauteur de `body` ne redescendrait jamais jusqu'a `main` -- c'est la page entiere qui
+   defilerait au lieu de la liste. Le selecteur doit suivre l'`id` de `index.html`. */
+#root {
   display: contents;
 }
 
@@ -44,9 +48,25 @@ h1 {
   color: var(--chaud);
 }
 
-nav {
+/* LA BARRE LATERALE PORTE LA NAVIGATION, L'EN-TETE LE MATERIEL. La sortie audio se change une
+   fois par seance et ne merite pas une place dans la colonne ; les quatre pages, elles, se
+   visent en permanence, et une colonne les tient a la meme abscisse quelle que soit la
+   longueur de leur nom. */
+.workspace {
+  flex: 1;
+  min-height: 0;
   display: flex;
+}
+
+.rail {
+  flex: none;
+  width: 158px;
+  display: flex;
+  flex-direction: column;
   gap: 4px;
+  padding: 12px 10px;
+  border-right: 1px solid var(--bord);
+  background: var(--panneau);
 }
 
 /* Les onglets sont des liens depuis le routeur. Tout le reste de la boite etait deja pose
@@ -54,14 +74,21 @@ nav {
    donc un <a> occupe exactement la boite qu'occupait le <button>. Seul le soulignement, que le
    bouton n'avait pas, restait a retirer. */
 .tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   background: none;
   border: 1px solid transparent;
   color: var(--pale);
-  padding: 6px 14px;
+  padding: 8px 12px;
   border-radius: 6px;
   cursor: pointer;
   font: inherit;
   text-decoration: none;
+}
+/* L'icone suit la ligne : `currentColor` la fait palir avec le mot, et s'allumer avec lui. */
+.tab svg {
+  flex: none;
 }
 .tab:hover {
   color: var(--texte);
@@ -156,12 +183,18 @@ button.primary {
   font-size: 13px;
 }
 
+/* LA FENETRE NE DEFILE PAS, SES PANNEAUX SI. Sans ce `overflow: hidden`, une colonne trop
+   haute -- une longue liste de personnages, une bardee de repliques favorites -- depassait de
+   la boite de `main` et c'est la page entiere qui prenait un ascenseur : l'en-tete et la barre
+   de transport partaient vers le haut des qu'on faisait defiler. Chaque panneau borne
+   desormais son propre defilement. */
 main {
   flex: 1;
   min-height: 0;
   display: flex;
   gap: 18px;
   padding: 18px;
+  overflow: hidden;
 }
 
 aside {
@@ -229,6 +262,7 @@ section {
   flex-direction: column;
   gap: 12px;
   min-width: 0;
+  min-height: 0;
 }
 
 .speaker {
@@ -240,6 +274,31 @@ section {
   font-size: 17px;
 }
 
+/* Le debit vit a cote du nom : c'est une propriete de qui parle, pas du transport. */
+.speaker-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.pace {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--pale);
+  font-size: 13px;
+}
+.pace input[type="range"] {
+  width: 150px;
+  padding: 0;
+}
+.pace output {
+  min-width: 42px;
+  text-align: right;
+  color: var(--texte);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Les répliques favorites : un clic les dit. */
 .favourites {
   list-style: none;
@@ -248,6 +307,11 @@ section {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  /* Une fiche bavarde a vingt repliques : elles prennent au plus le tiers de la colonne, et
+     defilent chez elles plutot que de chasser la zone de saisie hors de l'ecran. */
+  flex: 0 1 auto;
+  max-height: 33%;
+  overflow-y: auto;
 }
 .favourites li {
   padding: 5px 11px;
@@ -268,6 +332,7 @@ section {
 
 textarea {
   flex: 1;
+  min-height: 0;
   resize: none;
   line-height: 1.6;
   font-size: 17px;
@@ -361,6 +426,26 @@ details[open] summary {
   text-align: right;
   color: var(--texte);
   font-variant-numeric: tabular-nums;
+}
+
+/* Les reglages du moteur : un curseur, et sous lui ce qu'il change. Les noms ont une largeur
+   fixe pour que les curseurs s'alignent, quelle que soit la longueur du mot. */
+.tuning .setting {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tuning .slider .name {
+  flex: none;
+  width: 170px;
+}
+.tuning .slider output {
+  min-width: 48px;
+}
+.form label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
 
 .progress {
@@ -507,6 +592,20 @@ code {
 }
 .queue li.head .text {
   color: var(--texte);
+}
+/* Ce qui est passe reste lisible mais recule : l'oeil doit trouver d'abord ce qui parle. */
+.queue li.said,
+.queue li.cut {
+  opacity: 0.55;
+}
+.queue li.said .bullet {
+  background: var(--pale);
+}
+.queue li.cut .text {
+  text-decoration: line-through;
+}
+.transport .clear {
+  margin-left: auto;
 }
 .queue .status {
   color: var(--pale);

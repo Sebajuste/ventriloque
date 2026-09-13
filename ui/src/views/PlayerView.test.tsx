@@ -12,11 +12,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PlayerView from "./PlayerView";
 import {
   pause,
+  replay,
   resume,
   silence,
   speak,
   speechProgress,
   warmUp,
+  writeCharacter,
   type Snapshot,
   type Target,
 } from "../ipc";
@@ -25,12 +27,16 @@ import { SILENT, aCharacter, aVoice, deferred, heard, snapshotOf } from "../test
 vi.mock("../ipc", async (original) => ({
   ...(await original<typeof import("../ipc")>()),
   speak: vi.fn(),
+  replay: vi.fn(),
   silence: vi.fn(),
   speechProgress: vi.fn(),
   pause: vi.fn(),
   resume: vi.fn(),
   warmUp: vi.fn(),
+  writeCharacter: vi.fn(),
 }));
+
+const reload = vi.fn<() => Promise<void>>();
 
 /**
  * `target` appartient a la fenetre, pas au player : sans un parent qui la retient, un clic sur un
@@ -38,7 +44,7 @@ vi.mock("../ipc", async (original) => ({
  */
 function Shell({ snapshot }: { snapshot: Snapshot }) {
   const [target, setTarget] = useState<Target | null>(null);
-  return <PlayerView snapshot={snapshot} target={target} setTarget={setTarget} />;
+  return <PlayerView snapshot={snapshot} reload={reload} target={target} setTarget={setTarget} />;
 }
 
 const mount = (snapshot: Snapshot) => render(<Shell snapshot={snapshot} />);
@@ -46,12 +52,17 @@ const editor = () => screen.getByPlaceholderText(/Ce que dit le PNJ/);
 const button = (name: string) => screen.getByRole("button", { name });
 
 beforeEach(() => {
-  vi.mocked(speak).mockReset().mockResolvedValue(undefined);
+  vi.mocked(speak).mockReset().mockResolvedValue(null);
+  vi.mocked(replay).mockReset().mockResolvedValue(true);
   vi.mocked(silence).mockReset().mockResolvedValue(undefined);
   vi.mocked(pause).mockReset().mockResolvedValue(undefined);
   vi.mocked(resume).mockReset().mockResolvedValue(undefined);
   vi.mocked(warmUp).mockReset().mockResolvedValue([]);
   vi.mocked(speechProgress).mockReset().mockResolvedValue(SILENT);
+  vi.mocked(writeCharacter)
+    .mockReset()
+    .mockImplementation(async (c) => c);
+  reload.mockReset().mockResolvedValue(undefined);
 });
 
 // UN TEST QUI EXPIRE NE DEROULE PAS SON `finally`. Un seul test a horloge simulee qui echoue
@@ -111,7 +122,7 @@ describe("parler", () => {
     await userEvent.type(editor(), "   Salut, V.   ");
     fireEvent.keyDown(editor(), { key: "Enter", ctrlKey: true });
 
-    await waitFor(() => expect(speak).toHaveBeenCalledWith("judy.wav", "Salut, V."));
+    await waitFor(() => expect(speak).toHaveBeenCalledWith("judy.wav", "Salut, V.", 100));
   });
 
   it("ne dit rien d'un champ vide", async () => {
@@ -135,7 +146,7 @@ describe("parler", () => {
     await userEvent.click(screen.getByText("Judy Alvarez"));
     await userEvent.click(screen.getByText("On y va ?"));
 
-    await waitFor(() => expect(speak).toHaveBeenCalledWith("judy.wav", "On y va ?"));
+    await waitFor(() => expect(speak).toHaveBeenCalledWith("judy.wav", "On y va ?", 100));
     expect(editor()).toHaveValue("");
   });
 
@@ -148,6 +159,67 @@ describe("parler", () => {
 
     await waitFor(() => expect(speak).toHaveBeenCalledOnce());
     expect(editor()).toHaveValue("Encore.");
+  });
+});
+
+describe("debit", () => {
+  const pace = () => screen.getByLabelText(/Débit/);
+  const judy = (over = {}) =>
+    snapshotOf({
+      voices: [aVoice("Judy")],
+      characters: [aCharacter("Judy Alvarez", { voice: "judy.wav", ...over })],
+    });
+
+  it("n'apparait qu'une fois quelqu'un choisi", async () => {
+    mount(judy());
+    expect(screen.queryByLabelText(/Débit/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText("Judy Alvarez"));
+
+    expect(pace()).toHaveValue("100");
+  });
+
+  it("dit la replique au debit de la fiche", async () => {
+    mount(judy({ pace: 85 }));
+
+    await userEvent.click(screen.getByText("Judy Alvarez"));
+    expect(pace()).toHaveValue("85");
+    await userEvent.type(editor(), "Doucement.");
+    await userEvent.click(button("Parler"));
+
+    await waitFor(() => expect(speak).toHaveBeenCalledWith("judy.wav", "Doucement.", 85));
+  });
+
+  it("s'entend tout de suite, et se retient dans la fiche une fois le curseur pose", async () => {
+    mount(judy());
+    await userEvent.click(screen.getByText("Judy Alvarez"));
+
+    fireEvent.change(pace(), { target: { value: "120" } });
+    fireEvent.change(pace(), { target: { value: "125" } });
+    await userEvent.type(editor(), "Vite.");
+    await userEvent.click(button("Parler"));
+
+    expect(speak).toHaveBeenCalledWith("judy.wav", "Vite.", 125);
+    // Une seule ecriture pour tout le glisse, avec la derniere valeur, sous le meme identifiant.
+    await waitFor(() => expect(writeCharacter).toHaveBeenCalledOnce());
+    expect(writeCharacter).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "", name: "Judy Alvarez", pace: 125 }),
+      "judy_alvarez",
+    );
+    await waitFor(() => expect(reload).toHaveBeenCalledOnce());
+  });
+
+  it("ne cherche pas de fiche a ecrire pour une voix brute", async () => {
+    mount(judy());
+    await userEvent.click(screen.getByText("Judy"));
+
+    fireEvent.change(pace(), { target: { value: "80" } });
+    await userEvent.type(editor(), "Lent.");
+    await userEvent.click(button("Parler"));
+
+    await waitFor(() => expect(speak).toHaveBeenCalledWith("judy.wav", "Lent.", 80));
+    await new Promise((r) => setTimeout(r, 500));
+    expect(writeCharacter).not.toHaveBeenCalled();
   });
 });
 
@@ -168,7 +240,7 @@ describe("la file", () => {
 
   /** Choisit une voix et depose des repliques, sans en resoudre aucune. */
   const fill = async (...lines: string[]) => {
-    const inFlight = lines.map(() => deferred<void>());
+    const inFlight = lines.map(() => deferred<number | null>());
     inFlight.forEach((f) => vi.mocked(speak).mockReturnValueOnce(f.promise));
     mount(snapshotOf({ voices: [aVoice("Judy")] }));
     await userEvent.click(screen.getByText("Judy"));
@@ -194,21 +266,41 @@ describe("la file", () => {
     // Le lecteur audio ne sait retirer que sa tete : lui confier les trois d'un coup rendrait
     // « Retirer » impossible sur la deuxieme.
     expect(speak).toHaveBeenCalledOnce();
-    expect(speak).toHaveBeenCalledWith("judy.wav", "Un.");
+    expect(speak).toHaveBeenCalledWith("judy.wav", "Un.", 100);
 
-    inFlight[0]?.resolve();
+    inFlight[0]?.resolve(null);
 
     await waitFor(() => expect(speak).toHaveBeenCalledTimes(2));
-    expect(speak).toHaveBeenLastCalledWith("judy.wav", "Deux.");
+    expect(speak).toHaveBeenLastCalledWith("judy.wav", "Deux.", 100);
   });
 
-  it("vide la ligne au fur et a mesure qu'elle sort du haut-parleur", async () => {
+  it("garde la replique une fois dite, et engage la suivante", async () => {
     const inFlight = await fill("Un.", "Deux.");
-    expect(inList("Un.")).toBeInTheDocument();
 
-    inFlight[0]?.resolve();
+    inFlight[0]?.resolve(null);
 
-    await waitFor(() => expect(inList("Un.")).toBeNull());
+    await waitFor(() => expect(rowOf("Deux.")).toHaveClass("head"));
+    expect(texts()).toEqual(["Un.", "Deux."]);
+    expect(rowOf("Un.")).toHaveClass("said");
+    expect(within(rowOf("Un.")).getByText(/^dite —/)).toBeInTheDocument();
+  });
+
+  it("ne redit pas d'elle-meme ce qui a deja ete dit", async () => {
+    const inFlight = await fill("Un.");
+
+    inFlight[0]?.resolve(null);
+
+    await waitFor(() => expect(rowOf("Un.")).toHaveClass("said"));
+    expect(speak).toHaveBeenCalledOnce();
+  });
+
+  it("retire une replique deja dite", async () => {
+    const inFlight = await fill("Un.", "Deux.");
+    inFlight[0]?.resolve(null);
+    await waitFor(() => expect(rowOf("Un.")).toHaveClass("said"));
+
+    await userEvent.click(within(rowOf("Un.")).getByRole("button", { name: "Retirer" }));
+
     expect(texts()).toEqual(["Deux."]);
   });
 
@@ -218,7 +310,7 @@ describe("la file", () => {
   // `afterEach` la rend maintenant quoi qu'il arrive ; ceci n'est que la ceinture.
   const engage = () => {
     vi.useFakeTimers();
-    vi.mocked(speak).mockReturnValue(deferred<void>().promise);
+    vi.mocked(speak).mockReturnValue(deferred<number | null>().promise);
     mount(snapshotOf({ voices: [aVoice("Judy")] }));
     fireEvent.click(screen.getByText("Judy"));
     fireEvent.change(editor(), { target: { value: "Un." } });
@@ -274,20 +366,37 @@ describe("la file", () => {
     // ordonne le retrait de la tete et l'envoi de la suivante au lieu de les mettre en course.
     expect(inList("Un.")).toBeInTheDocument();
 
-    inFlight[0]?.resolve();
+    inFlight[0]?.resolve(null);
 
-    await waitFor(() => expect(inList("Un.")).toBeNull());
-    expect(speak).toHaveBeenLastCalledWith("judy.wav", "Deux.");
+    await waitFor(() => expect(rowOf("Un.")).toHaveClass("cut"));
+    // Attendu et pas constaté : l'effet qui engage la suivante passe APRES le rendu qui marque
+    // « coupée », et sous charge l'assertion tombait entre les deux.
+    await waitFor(() => expect(speak).toHaveBeenLastCalledWith("judy.wav", "Deux.", 100));
   });
 
-  it("le silence jette toute la file d'un coup", async () => {
-    await fill("Un.", "Deux.", "Trois.");
+  it("le silence coupe tout, sans rien effacer", async () => {
+    const inFlight = await fill("Un.", "Deux.", "Trois.");
 
     await userEvent.click(button("Silence"));
 
     expect(silence).toHaveBeenCalledOnce();
+    inFlight[0]?.resolve(null);
+    await waitFor(() => expect(rowOf("Un.")).toHaveClass("cut"));
+    expect(texts()).toEqual(["Un.", "Deux.", "Trois."]);
+    expect(rowOf("Trois.")).toHaveClass("cut");
+    // Ce qui attendait ne part pas au moteur : couper, c'est tout couper.
+    expect(speak).toHaveBeenCalledOnce();
+  });
+
+  it("vider efface toute la file, et coupe ce qui parle", async () => {
+    await fill("Un.", "Deux.");
+
+    await userEvent.click(button("Vider"));
+
+    expect(silence).toHaveBeenCalledOnce();
     expect(texts()).toEqual([]);
     expect(screen.getByText(/Rien en file/)).toBeInTheDocument();
+    expect(button("Vider")).toBeDisabled();
   });
 
   it("garde la place du bloc de lecture, pleine ou vide", async () => {
@@ -334,12 +443,101 @@ describe("la file", () => {
     expect(within(rowOf("Un.")).queryByRole("button", { name: "Retirer" })).toBeNull();
   });
 
-  it("redire remet la replique en queue de file", async () => {
-    await fill("Un.", "Deux.");
+  /** Une replique dite jusqu'au bout, dont Rust a garde la prise `7`. */
+  const saidWithTake = async () => {
+    const inFlight = await fill("Un.");
+    inFlight[0]?.resolve(7);
+    await waitFor(() => expect(rowOf("Un.")).toHaveClass("said"));
+  };
+  const click = (name: string) =>
+    userEvent.click(within(rowOf("Un.")).getByRole("button", { name }));
 
-    await userEvent.click(within(rowOf("Un.")).getByRole("button", { name: "Redire" }));
+  it("redire deplace la meme ligne en queue de file, sans doublon", async () => {
+    const inFlight = await fill("Un.", "Deux.");
+    inFlight[0]?.resolve(7);
+    await waitFor(() => expect(rowOf("Deux.")).toHaveClass("head"));
+
+    await click("Redire");
+
+    expect(texts()).toEqual(["Deux.", "Un."]);
+    expect(rowOf("Un.")).not.toHaveClass("said");
+  });
+
+  it("redire rejoue la prise de CETTE ligne, parmi plusieurs", async () => {
+    const takes: Record<string, number> = { "Un.": 10, "Deux.": 20, "Trois.": 30 };
+    const inFlight = await fill("Un.", "Deux.", "Trois.");
+    for (const [i, text] of ["Un.", "Deux.", "Trois."].entries()) {
+      inFlight[i]?.resolve(takes[text] ?? null);
+      await waitFor(() => expect(rowOf(text)).toHaveClass("said"));
+    }
+
+    for (const text of ["Deux.", "Un.", "Trois.", "Deux."]) {
+      vi.mocked(replay).mockClear();
+      await userEvent.click(within(rowOf(text)).getByRole("button", { name: "Redire" }));
+      await waitFor(() => expect(replay).toHaveBeenCalledWith(takes[text], "judy.wav", text, 100));
+      await waitFor(() => expect(rowOf(text)).toHaveClass("said"));
+    }
+  });
+
+  it("une nouvelle prise ajoute une ligne, et garde l'ancienne avec sa prise", async () => {
+    const inFlight = await fill("Un.", "Deux.");
+    inFlight[0]?.resolve(7);
+    await waitFor(() => expect(rowOf("Deux.")).toHaveClass("head"));
+
+    await click("Nouvelle prise");
 
     expect(texts()).toEqual(["Un.", "Deux.", "Un."]);
+    expect(within(list() as HTMLElement).getAllByText("Un.")[0]?.closest("li")).toHaveClass("said");
+  });
+
+  it("ne propose de redire que ce qui a fini de parler", async () => {
+    await fill("Un.", "Deux.");
+
+    for (const text of ["Un.", "Deux."]) {
+      expect(within(rowOf(text)).queryByRole("button", { name: "Redire" })).toBeNull();
+      expect(within(rowOf(text)).queryByRole("button", { name: "Nouvelle prise" })).toBeNull();
+    }
+  });
+
+  it("REDIRE REJOUE LA MEME PRISE, sans redemander au moteur", async () => {
+    await saidWithTake();
+
+    await click("Redire");
+
+    // Le moteur tire au sort : le rappeler donnerait une autre intonation, apres l'attente.
+    // Avec ce qu'elle dit : Rust refuse une prise qui ne correspond pas.
+    await waitFor(() => expect(replay).toHaveBeenCalledWith(7, "judy.wav", "Un.", 100));
+    expect(speak).toHaveBeenCalledOnce();
+  });
+
+  it("une nouvelle prise, elle, repasse par le moteur", async () => {
+    await saidWithTake();
+
+    await click("Nouvelle prise");
+
+    await waitFor(() => expect(speak).toHaveBeenCalledTimes(2));
+    expect(replay).not.toHaveBeenCalled();
+  });
+
+  it("refait la prise que Rust a oubliee", async () => {
+    vi.mocked(replay).mockResolvedValue(false);
+    await saidWithTake();
+
+    await click("Redire");
+
+    await waitFor(() => expect(speak).toHaveBeenCalledTimes(2));
+    expect(replay).toHaveBeenCalledWith(7, "judy.wav", "Un.", 100);
+  });
+
+  it("une replique coupee n'a pas de prise : la redire la refait", async () => {
+    const inFlight = await fill("Un.");
+    inFlight[0]?.resolve(null);
+    await waitFor(() => expect(rowOf("Un.")).not.toHaveClass("head"));
+
+    await click("Redire");
+
+    await waitFor(() => expect(speak).toHaveBeenCalledTimes(2));
+    expect(replay).not.toHaveBeenCalled();
   });
 
   it("ferme le transport quand il n'y a rien a piloter, sauf le silence", async () => {
@@ -347,13 +545,14 @@ describe("la file", () => {
 
     expect(button("Pause")).toBeDisabled();
     expect(button("Suivant")).toBeDisabled();
+    expect(button("Vider")).toBeDisabled();
     // Jamais desactive : c'est le bouton qu'on ecrase quand quelque chose part de travers, et le
     // trouver eteint a ce moment-la serait le pire moment.
     expect(button("Silence")).toBeEnabled();
   });
 
   it("affiche la panne du moteur sans la confondre avec un etat de file", async () => {
-    const failure = deferred<void>();
+    const failure = deferred<number | null>();
     vi.mocked(speak).mockReturnValueOnce(failure.promise);
 
     mount(snapshotOf({ voices: [aVoice("Judy")] }));

@@ -31,6 +31,13 @@ const RUNTIME_NAME: &str = "onnxruntime.dll";
 // controle : ces fichiers ne changent qu'avec une version de Ventriloque, et une version
 // differente les ecrit toutes.
 fn write_if_stale(target: &Path, content: &[u8]) -> Result<()> {
+    // EN DEVELOPPEMENT, ON REECRIT TOUJOURS. La taille est un controle bon marche mais grossier :
+    // deux versions d'un meme binaire peuvent peser pareil, et rien ne serait redeploye. En
+    // release c'est sans risque -- ces fichiers ne changent qu'avec une version de Ventriloque,
+    // qui les ecrit tous. Pendant qu'on travaille sur le fabricant, en revanche, la meme regle
+    // fait tourner l'application sur une version d'il y a deux heures, et la panne ressemble a
+    // un bug du code qu'on vient d'ecrire.
+    #[cfg(not(debug_assertions))]
     if target.metadata().is_ok_and(|m| m.len() == content.len() as u64) {
         return Ok(());
     }

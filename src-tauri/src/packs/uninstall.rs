@@ -9,7 +9,7 @@
 // jeux d'un meme univers, un modele partage. Retirer l'un ne doit pas casser l'autre.
 
 use anyhow::{Result, anyhow};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::paths;
 
@@ -20,16 +20,11 @@ use super::store;
 /// Rend le nombre de fichiers effaces.
 pub fn uninstall(root: &Path, name: &str, job: &Job) -> Result<usize> {
     let all = store::installed(root);
-    let manifest = all
-        .iter()
-        .find(|m| m.name == name)
-        .ok_or_else(|| anyhow!("paquet inconnu : {name}"))?;
+    let manifest =
+        all.iter().find(|m| m.name == name).ok_or_else(|| anyhow!("paquet inconnu : {name}"))?;
 
-    let claimed_elsewhere: Vec<&String> = all
-        .iter()
-        .filter(|m| m.name != name)
-        .flat_map(|m| m.files.iter())
-        .collect();
+    let claimed_elsewhere: Vec<&String> =
+        all.iter().filter(|m| m.name != name).flat_map(|m| m.files.iter()).collect();
 
     job.start(&manifest.name, manifest.files.len());
     let mut removed = 0usize;
@@ -55,7 +50,7 @@ pub fn uninstall(root: &Path, name: &str, job: &Job) -> Result<usize> {
 /// Le cache de clonage vit sous le seul radical du fichier. Le laisser derriere serait le piege
 /// documente : un paquet ulterieur qui livre le meme nom heriterait d'un etat qui n'est pas le
 /// sien.
-fn remove_clone_cache(root: &Path, relative: &PathBuf) {
+fn remove_clone_cache(root: &Path, relative: &Path) {
     if !relative.extension().is_some_and(|e| e.eq_ignore_ascii_case("wav")) {
         return;
     }

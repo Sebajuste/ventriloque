@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
-use crate::audio::{Output, PlaybackProgress};
+use crate::audio::{Output, PlaybackProgress, Takes};
 use crate::engine::Engine;
 use crate::{audio, embedded, engine, packs, paths, settings};
 
@@ -33,12 +33,12 @@ pub struct AppState {
     /// L'avancement de la replique EN COURS, et il n'y en a qu'une : la fenetre ne confie au
     /// lecteur qu'une replique a la fois, donc un seul emplacement dit toujours de qui l'on parle.
     pub speech: Arc<Mutex<Option<Arc<PlaybackProgress>>>>,
+    /// Les dernieres repliques synthetisees, pour les redire sans refaire le calcul.
+    pub takes: Arc<Mutex<Takes>>,
     /// L'avancement de l'operation en cours sur les paquets. Un seul emplacement : les boutons
     /// se ferment pendant qu'elle tourne, donc il n'y en a jamais deux.
     pub job: Arc<packs::Job>,
     pub device: Mutex<usize>,
-    /// Choisi au demarrage, une fois : le moteur ecoute dessus tant que l'application vit.
-    pub port: u16,
 }
 
 impl AppState {
@@ -65,25 +65,45 @@ impl AppState {
             failure: Mutex::new(String::new()),
             output: Output::start(),
             speech: Arc::new(Mutex::new(None)),
+            takes: Arc::new(Mutex::new(Takes::default())),
             job: Arc::new(packs::Job::default()),
             device: Mutex::new(audio::default_device()),
-            port: engine::free_port(),
         }
     }
 
-    /// Met le moteur en route, ou retient pourquoi il n'a pas pu.
+    /// Met le moteur en route -- ou le relance s'il tournait deja --, ou retient pourquoi il n'a
+    /// pas pu.
     ///
-    /// Appelee au demarrage et apres l'installation d'un paquet : une premiere ouverture sans
-    /// modeles est le cas NORMAL d'un executable portable, et il ne faut pas obliger a relancer
-    /// l'application pour que le paquet qu'on vient de poser serve.
+    /// Appelee au demarrage, apres l'installation d'un paquet, et quand les reglages du moteur
+    /// changent : une premiere ouverture sans modeles est le cas NORMAL d'un executable portable,
+    /// et le moteur ne lit ses reglages qu'a son lancement.
+    ///
+    /// LE VERROU EST TENU DE BOUT EN BOUT. Une replique demandee pendant la relance attend le
+    /// nouveau moteur au lieu d'echouer sur un emplacement vide ; une replique en cours de calcul
+    /// finit avec l'ancien avant qu'on le tue.
+    ///
+    /// L'ANCIEN EST TUE AVANT TOUT LE RESTE, deploiement compris. Windows refuse d'ecraser un
+    /// executable qui tourne, et en developpement `deploy` reecrit le moteur a chaque appel : le
+    /// deployer d'abord faisait echouer chaque relance sur « acces refuse ». Le port est retire a
+    /// chaque fois, sinon l'attente d'ecoute pourrait croire pret un moteur en train de mourir.
     pub fn start_engine(&self) {
+        let mut slot = self.engine.lock().unwrap();
+        slot.take();
         let binary = match embedded::deploy(&self.root) {
             Ok(path) => path,
             Err(e) => return self.fail(e.to_string()),
         };
-        match Engine::start(&binary, &self.models_dir, &self.voices_dir, self.port) {
+        let tuning = settings::engine(&self.root);
+        let started = Engine::start(
+            &binary,
+            &self.models_dir,
+            &self.voices_dir,
+            engine::free_port(),
+            &tuning,
+        );
+        match started {
             Ok(engine) => {
-                *self.engine.lock().unwrap() = Some(engine);
+                *slot = Some(engine);
                 self.failure.lock().unwrap().clear();
             }
             Err(e) => self.fail(e.to_string()),

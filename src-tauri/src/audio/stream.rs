@@ -24,7 +24,14 @@ pub struct SpeechStream {
     stop: Arc<AtomicBool>,
     drained: Drained,
     progress: Arc<PlaybackProgress>,
+    /// Assez d'avance est accumulee pour jouer sans trou.
+    primed: bool,
+    /// Le producteur a lache le canal : plus rien n'arrivera.
+    finished: bool,
 }
+
+/// L'avance a accumuler avant de jouer : un quart de seconde.
+const PREROLL: usize = crate::engine::SAMPLE_RATE as usize / 4;
 
 // SAVOIR QUAND LE SON EST SORTI, et pas seulement quand le calcul est fini.
 //
@@ -74,27 +81,40 @@ impl Iterator for SpeechStream {
         if self.stop.load(Ordering::Relaxed) {
             return None;
         }
-        if let Some(sample) = self.buffer.pop_front() {
-            self.progress.add_played(1);
-            return Some(sample);
-        }
-        match self.chunks.try_recv() {
-            Ok(chunk) => {
-                self.buffer.extend(chunk);
-                match self.buffer.pop_front() {
-                    Some(sample) => {
-                        self.progress.add_played(1);
-                        Some(sample)
+        if self.buffer.is_empty() || !self.primed {
+            loop {
+                match self.chunks.try_recv() {
+                    Ok(chunk) => self.buffer.extend(chunk),
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => {
+                        self.finished = true;
+                        break;
                     }
-                    None => Some(0.0),
                 }
             }
+            if self.buffer.is_empty() {
+                if self.finished {
+                    return None;
+                }
+                // Un trou en cours de phrase : on se reamorce plutot que de hacher la suite.
+                self.primed = false;
+            }
+            // JOUER DES LE PREMIER ECHANTILLON HACHE LE DEBUT. Les morceaux arrivent par a-coups
+            // au demarrage : chaque trou devient un micro-silence au milieu d'une syllabe, et les
+            // premiers mots sont inaudibles -- alors que la meme prise, rejouee d'un bloc, est
+            // nette. On attend donc un peu d'avance, ou la fin du flux si la replique est courte.
+            if !self.primed && (self.buffer.len() >= PREROLL || self.finished) {
+                self.primed = true;
+            }
+        }
+        if !self.primed {
             // LE SILENCE D'ATTENTE NE COMPTE PAS. Il est joue, mais ce n'est pas de la replique :
             // le compter avancerait la barre pendant que la voix se clone, sans qu'on entende rien.
-            Err(TryRecvError::Empty) => Some(0.0),
-            // Le producteur a lache le canal : la replique est finie.
-            Err(TryRecvError::Disconnected) => None,
+            return Some(0.0);
         }
+        let sample = self.buffer.pop_front()?;
+        self.progress.add_played(1);
+        Some(sample)
     }
 }
 
@@ -137,6 +157,8 @@ pub fn speech_channel(stop: Arc<AtomicBool>) -> SpeechChannel {
         stop,
         drained: drained.clone(),
         progress: progress.clone(),
+        primed: false,
+        finished: false,
     };
     SpeechChannel { sink, stream, drained, progress }
 }

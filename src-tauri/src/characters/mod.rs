@@ -18,7 +18,21 @@ use anyhow::{Context, Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default, specta::Type)]
+/// Le debit du moteur, tel quel. En pourcent : un entier traverse JSON sans devenir `0.8500001`.
+pub const NORMAL_PACE: u32 = 100;
+/// Au-dela, l'etirement s'entend -- une voix trainante ou metallique plutot qu'un debit.
+const PACE_RANGE: std::ops::RangeInclusive<u32> = 70..=140;
+
+/// Ramene un debit dans ce que l'etirement rend sans artefact.
+pub fn bounded_pace(pace: u32) -> u32 {
+    pace.clamp(*PACE_RANGE.start(), *PACE_RANGE.end())
+}
+
+fn normal_pace() -> u32 {
+    NORMAL_PACE
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, specta::Type)]
 pub struct Character {
     /// Deduit du nom, et c'est aussi le nom du fichier.
     #[serde(default)]
@@ -35,6 +49,24 @@ pub struct Character {
     /// ou l'on n'a pas le temps de taper.
     #[serde(default)]
     pub lines: Vec<String>,
+    /// Le debit de parole, en pourcent du debit du moteur. Le moteur n'en a pas : c'est la
+    /// lecture qui etire le son, sans toucher a sa hauteur. Une fiche sans ce champ parle au
+    /// debit du moteur.
+    #[serde(default = "normal_pace")]
+    pub pace: u32,
+}
+
+impl Default for Character {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: String::new(),
+            universe: String::new(),
+            voice: String::new(),
+            lines: Vec::new(),
+            pace: NORMAL_PACE,
+        }
+    }
 }
 
 /// Le nom devient un nom de fichier. Tout ce qui n'est pas une lettre ou un chiffre devient un
@@ -72,7 +104,7 @@ pub fn all(folder: &Path) -> Vec<Character> {
                 .collect()
         })
         .unwrap_or_default();
-    characters.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    characters.sort_by_key(|a| a.name.to_lowercase());
     characters
 }
 
@@ -86,6 +118,7 @@ pub fn write(folder: &Path, mut character: Character, previous_id: &str) -> Resu
         return Err(anyhow!("ce nom ne donne aucun nom de fichier utilisable"));
     }
     character.lines.retain(|line| !line.trim().is_empty());
+    character.pace = bounded_pace(character.pace);
 
     std::fs::create_dir_all(folder).ok();
     let text = serde_json::to_string_pretty(&character).context("mise en forme de la fiche")?;
@@ -142,12 +175,9 @@ mod tests {
     #[test]
     fn renommer_ne_laisse_pas_de_doublon() {
         let dir = TempDir::new("characters-renomme");
-        let first = write(
-            dir.path(),
-            Character { name: "Judy".into(), ..Character::default() },
-            "",
-        )
-        .unwrap();
+        let first =
+            write(dir.path(), Character { name: "Judy".into(), ..Character::default() }, "")
+                .unwrap();
 
         write(
             dir.path(),
@@ -185,6 +215,28 @@ mod tests {
         .unwrap();
 
         assert_eq!(written.lines, vec!["Vraie".to_string()]);
+    }
+
+    // Les fiches deja sur le disque, et celles des paquets distribues, n'ont pas de debit : elles
+    // doivent parler comme avant.
+    #[test]
+    fn une_fiche_sans_debit_parle_au_debit_du_moteur() {
+        let dir = TempDir::new("characters-debit-absent");
+        std::fs::write(dir.path().join("nova.json"), r#"{"name":"Nova","voice":"n.wav"}"#).unwrap();
+
+        assert_eq!(all(dir.path())[0].pace, NORMAL_PACE);
+    }
+
+    #[test]
+    fn le_debit_s_ecrit_et_reste_dans_ses_bornes() {
+        let dir = TempDir::new("characters-debit");
+        let slow = Character { name: "Vieux mage".into(), pace: 85, ..Character::default() };
+        assert_eq!(write(dir.path(), slow, "").unwrap().pace, 85);
+
+        let wild = Character { name: "Gamin".into(), pace: 400, ..Character::default() };
+        assert_eq!(write(dir.path(), wild, "").unwrap().pace, 140);
+        let frozen = Character { name: "Statue".into(), pace: 0, ..Character::default() };
+        assert_eq!(write(dir.path(), frozen, "").unwrap().pace, 70);
     }
 
     #[test]

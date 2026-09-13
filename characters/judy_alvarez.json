@@ -2,10 +2,11 @@
   "id": "judy_alvarez",
   "name": "Judy Alvarez",
   "universe": "Cyberpunk 2077",
-  "voice": "judy.wav",
+  "voice": "cp77_judy_alvarez.wav",
   "lines": [
     "Passe-moi ça, je vais voir ce que ça donne.",
     "J'ai pas le temps pour les conneries des corpos.",
     "T'es sûr de toi ? Parce que moi, non."
-  ]
+  ],
+  "pace": 100
 }

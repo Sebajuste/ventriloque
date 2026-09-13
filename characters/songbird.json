@@ -2,7 +2,7 @@
   "id": "songbird",
   "name": "Songbird",
   "universe": "Cyberpunk 2077",
-  "voice": "songbird.wav",
+  "voice": "cp77_songbird.wav",
   "lines": [
     "Je sais déjà ce que tu vas demander.",
     "Rien de ce que tu vois ici n'est vraiment là.",

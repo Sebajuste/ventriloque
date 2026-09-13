@@ -73,7 +73,8 @@ pub async fn install_pack(
     .map_err(|e| e.to_string())??;
 
     // Un paquet de modeles rend souvent parlant ce qui ne l'etait pas : on retente tout de suite.
-    let brings_models = manifest.files.iter().any(|f| f.starts_with(&format!("{}/", crate::paths::MODELS)));
+    let brings_models =
+        manifest.files.iter().any(|f| f.starts_with(&format!("{}/", crate::paths::MODELS)));
     if brings_models && !app.is_ready() {
         app.start_engine();
     }
@@ -115,7 +116,7 @@ pub async fn build_pack(
     // Le dossier du jeu : trouve tout seul quand c'est possible, demande sinon. `choose_folder`
     // force la question -- c'est la sortie de secours quand la detection tombe sur la mauvaise
     // installation, ou sur aucune.
-    let game = match (choose_folder, games::find_install(&manifest.product)) {
+    let game = match (choose_folder, games::find_install(&manifest.product, &manifest.marker)) {
         (false, Some(found)) => found,
         _ => {
             let Some(folder) = window.dialog().file().blocking_pick_folder() else {

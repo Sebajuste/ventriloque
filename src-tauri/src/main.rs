@@ -43,10 +43,10 @@ fn main() {
         // Fermer la fenetre doit tuer le moteur, et rien ne le fait tout seul : voir
         // `AppState::shutdown`.
         .run(|handle, event| {
-            if let tauri::RunEvent::Exit = event {
-                if let Some(state) = handle.try_state::<AppState>() {
-                    state.shutdown();
-                }
+            if let tauri::RunEvent::Exit = event
+                && let Some(state) = handle.try_state::<AppState>()
+            {
+                state.shutdown();
             }
         });
 }

@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 
-import type { Snapshot, Target, Voice } from "../../ipc";
+import { NORMAL_PACE, type Snapshot, type Target, type Voice } from "../../ipc";
 
 interface Props {
   snapshot: Snapshot;
@@ -11,12 +11,17 @@ interface Props {
   onPick: (target: Target) => void;
 }
 
-/** Une voix brute, prise telle quelle : elle n'a ni univers ni répliques favorites. */
+/**
+ * Une voix brute, prise telle quelle : elle n'a ni univers, ni répliques favorites, ni fiche où
+ * retenir un débit.
+ */
 export const targetFromVoice = (voice: Voice): Target => ({
   name: voice.name,
   reference: voice.reference,
   kind: voice.kind,
   lines: [],
+  character: "",
+  pace: NORMAL_PACE,
 });
 
 export function CastList({ snapshot, target, onPick }: Props) {
@@ -51,6 +56,8 @@ export function CastList({ snapshot, target, onPick }: Props) {
                   reference: character.voice,
                   kind: voice?.kind ?? null,
                   lines: character.lines,
+                  character: character.id,
+                  pace: character.pace,
                 })
               }
             />

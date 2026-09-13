@@ -9,19 +9,11 @@
 const LOBES: i64 = 16;
 
 fn sinc(x: f32) -> f32 {
-    if x.abs() < 1e-6 {
-        1.0
-    } else {
-        (std::f32::consts::PI * x).sin() / (std::f32::consts::PI * x)
-    }
+    if x.abs() < 1e-6 { 1.0 } else { (std::f32::consts::PI * x).sin() / (std::f32::consts::PI * x) }
 }
 
 fn lanczos(x: f32) -> f32 {
-    if x.abs() >= LOBES as f32 {
-        0.0
-    } else {
-        sinc(x) * sinc(x / LOBES as f32)
-    }
+    if x.abs() >= LOBES as f32 { 0.0 } else { sinc(x) * sinc(x / LOBES as f32) }
 }
 
 pub fn resample(input: &[f32], from: u32, to: u32) -> Vec<f32> {

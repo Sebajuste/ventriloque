@@ -18,4 +18,5 @@ mod wav;
 
 pub use assemble::assemble;
 pub use recipe::{Recipe, render};
+pub use stretch::Pacer;
 pub use wav::write_wav;

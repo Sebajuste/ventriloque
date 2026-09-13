@@ -1,9 +1,9 @@
 // Le processus du moteur : le lancer, l'attendre, et le tuer quoi qu'il arrive.
 //
-// LA LIGNE DE COMMANDE N'EST PAS NEGOCIABLE. Chaque drapeau ci-dessous reproduit la
-// configuration deja validee en jeu par le mod ai_npc (`ptt_create(..., "int8", 0.7f, 1, 0)`
-// suivi de `ptt_set_eos_extra`). En changer un, c'est quitter la seule combinaison qu'on ait
-// entendue tourner.
+// LES REGLAGES DU SON VIENNENT DE `ventriloque.json`, et leurs valeurs d'origine reproduisent la
+// configuration validee en jeu par le mod ai_npc (`ptt_create(..., "int8", 0.7f, 1, 0)` suivi de
+// `ptt_set_eos_extra`) -- voir `settings::EngineSettings`. La precision, elle, reste fixe : le
+// paquet de modeles ne livre que les poids `int8`.
 //
 // `--threads 0` demande la moitie des coeurs. UN SEUL FIL EST LE PIRE REGLAGE POSSIBLE -- 1,02x
 // le temps reel contre 4,8x -- et c'est le defaut de la bibliotheque sous-jacente, pas un choix.
@@ -13,6 +13,8 @@ use std::net::TcpStream;
 use std::path::Path;
 use std::process::{Child, Command};
 use std::time::{Duration, Instant};
+
+use crate::settings::EngineSettings;
 
 /// Combien de temps le modele a pour se charger. Il met ~2,5 s sur une machine ordinaire ; la
 /// marge couvre un disque lent ou un antivirus curieux.
@@ -33,7 +35,13 @@ impl Drop for Engine {
 }
 
 impl Engine {
-    pub fn start(binary: &Path, models: &Path, voices: &Path, port: u16) -> Result<Self> {
+    pub fn start(
+        binary: &Path,
+        models: &Path,
+        voices: &Path,
+        port: u16,
+        tuning: &EngineSettings,
+    ) -> Result<Self> {
         if !binary.exists() {
             return Err(anyhow!("moteur introuvable : {}", binary.display()));
         }
@@ -44,15 +52,18 @@ impl Engine {
 
         let mut command = Command::new(binary);
         command
-            .arg("--server").arg("--port").arg(port.to_string())
-            .arg("--models-dir").arg(models)
-            .arg("--voices-dir").arg(voices)
-            .arg("--tokenizer").arg(models.join("tokenizer.model"))
-            .arg("--precision").arg("int8")
-            .arg("--temperature").arg("0.7")
-            .arg("--lsd-steps").arg("1")
-            .arg("--threads").arg("0")
-            .arg("--eos-extra").arg(frames_after_eos(models).to_string());
+            .arg("--server")
+            .arg("--port")
+            .arg(port.to_string())
+            .arg("--models-dir")
+            .arg(models)
+            .arg("--voices-dir")
+            .arg(voices)
+            .arg("--tokenizer")
+            .arg(models.join("tokenizer.model"))
+            .arg("--precision")
+            .arg("int8")
+            .args(tuning_arguments(tuning, models));
 
         #[cfg(windows)]
         {
@@ -81,6 +92,23 @@ impl Engine {
         }
         Err(anyhow!("le moteur n'a pas repondu en {} s", limit.as_secs()))
     }
+}
+
+/// Les drapeaux qui reglent le son. Tous passes, meme a leur valeur d'origine : ce qui tourne ne
+/// depend pas des defauts d'un binaire qu'on peut remplacer.
+fn tuning_arguments(tuning: &EngineSettings, models: &Path) -> Vec<String> {
+    let eos_extra = tuning.eos_extra.unwrap_or_else(|| frames_after_eos(models));
+    [
+        ("--temperature", tuning.temperature.to_string()),
+        ("--lsd-steps", tuning.lsd_steps.to_string()),
+        ("--noise-clamp", tuning.noise_clamp.to_string()),
+        ("--eos-threshold", tuning.eos_threshold.to_string()),
+        ("--threads", tuning.threads.to_string()),
+        ("--eos-extra", eos_extra.to_string()),
+    ]
+    .into_iter()
+    .flat_map(|(flag, value)| [flag.to_string(), value])
+    .collect()
 }
 
 /// Combien de trames laisser courir apres la fin de phrase, tel que le paquet de modeles le dit.
@@ -127,5 +155,45 @@ pub fn tie_to_process_lifetime(child: &Child) {
             std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
         );
         AssignProcessToJobObject(job, child.as_raw_handle() as _);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tuning_arguments;
+    use crate::settings::EngineSettings;
+    use crate::testing::TempDir;
+
+    fn value_of(arguments: &[String], flag: &str) -> String {
+        let at = arguments.iter().position(|a| a == flag).expect(flag);
+        arguments[at + 1].clone()
+    }
+
+    // Les valeurs d'origine doivent donner exactement la ligne de commande validee en jeu.
+    #[test]
+    fn a_l_origine_la_ligne_est_celle_du_jeu() {
+        let models = TempDir::new("process-origine");
+        std::fs::write(models.path().join("frames_after_eos.txt"), "8\n").unwrap();
+
+        let arguments = tuning_arguments(&EngineSettings::default(), models.path());
+
+        assert_eq!(value_of(&arguments, "--temperature"), "0.7");
+        assert_eq!(value_of(&arguments, "--lsd-steps"), "1");
+        assert_eq!(value_of(&arguments, "--noise-clamp"), "0");
+        assert_eq!(value_of(&arguments, "--eos-threshold"), "-4");
+        assert_eq!(value_of(&arguments, "--threads"), "0");
+        assert_eq!(value_of(&arguments, "--eos-extra"), "8");
+    }
+
+    #[test]
+    fn un_nombre_de_trames_choisi_l_emporte_sur_le_paquet() {
+        let models = TempDir::new("process-trames");
+        std::fs::write(models.path().join("frames_after_eos.txt"), "8").unwrap();
+        let tuning = EngineSettings { eos_extra: Some(4), temperature: 0.55, ..Default::default() };
+
+        let arguments = tuning_arguments(&tuning, models.path());
+
+        assert_eq!(value_of(&arguments, "--eos-extra"), "4");
+        assert_eq!(value_of(&arguments, "--temperature"), "0.55");
     }
 }

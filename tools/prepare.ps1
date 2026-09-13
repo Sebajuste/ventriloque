@@ -18,6 +18,15 @@
 # vrai choix — quoi bâtir, où le déposer — est dans `package.json` et `tauri.conf.json`.
 #
 #   $env:VENTRILOQUE_SANS_TESTS = "1"   saute les tests Rust (npm run build:rapide le pose)
+#
+# -Fabricant : ne refait QUE le fabricant. C'est le `beforeDevCommand`, parce que `tauri dev`
+# recompile bien le Rust mais ne rebâtit pas ce que `include_bytes!` avale — en développement,
+# l'application embarquait donc silencieusement un fabricant vieux de plusieurs heures. Le reste
+# n'a pas lieu d'être en dev : Vite sert l'interface à chaud, et les tests ont leur commande.
+
+param(
+    [switch]$Fabricant
+)
 
 $ErrorActionPreference = "Stop"
 $racine = Split-Path -Parent $PSScriptRoot
@@ -25,7 +34,8 @@ Set-Location $racine
 
 # Un Ventriloque ouvert tient son propre fichier : cargo échoue alors sur « failed to remove
 # file », qui ne dit pas quoi faire. On le dit ici, avant de perdre une minute de compilation.
-$ouverts = @(Get-Process -Name "ventriloque" -ErrorAction SilentlyContinue)
+# En dev, la fenêtre ouverte est justement celle qu'on relance : le contrôle n'a pas lieu d'être.
+$ouverts = if ($Fabricant) { @() } else { @(Get-Process -Name "ventriloque" -ErrorAction SilentlyContinue) }
 if ($ouverts.Count -gt 0) {
     $pids = ($ouverts | ForEach-Object { $_.Id }) -join ", "
     throw "Ventriloque tourne (PID $pids) et verrouille son exécutable. Ferme la fenêtre, puis relance."
@@ -37,6 +47,8 @@ Write-Output "== pack-builder (casclib + rhai) =="
 cargo build --release --manifest-path tools\pack-builder\Cargo.toml
 if ($LASTEXITCODE -ne 0) { throw "la compilation de pack-builder a échoué" }
 Copy-Item tools\target\release\pack-builder.exe src-tauri\binaries\pack-builder.exe -Force
+
+if ($Fabricant) { return }
 
 # LE LIEN ENSUITE, AVANT DE BÂTIR L'INTERFACE CONTRE LUI.
 #

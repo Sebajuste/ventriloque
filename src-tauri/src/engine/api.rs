@@ -12,6 +12,8 @@ use std::sync::mpsc::Sender;
 use std::time::Duration;
 
 use crate::audio::PlaybackProgress;
+use crate::characters::NORMAL_PACE;
+use crate::voice::Pacer;
 
 use super::process::Engine;
 
@@ -63,16 +65,36 @@ impl Engine {
     ///
     /// Bloquant jusqu'a la fin de la synthese -- le son, lui, a commence bien avant. L'appelant
     /// est un fil dedie, jamais celui de la fenetre.
+    ///
+    /// `pace` en pourcent. Au debit normal, l'etireur n'est PAS dans le chemin : meme neutre, il
+    /// colore legerement le son.
+    ///
+    /// Tout ce qui part vers la sortie est aussi copie dans `take`, debit compris : c'est la
+    /// prise qu'on redira. Rend `true` si la synthese est allee au bout -- une prise coupee ne
+    /// vaut pas d'etre redite.
+    // Huit arguments, et aucun n'est de trop : les grouper en structure ferait un type qui
+    // n'existerait que pour cet appel, et dont chaque champ se lirait moins bien qu'ici.
+    #[allow(clippy::too_many_arguments)]
     pub fn speak_streaming(
         &self,
         voice: &str,
         text: &str,
+        pace: u32,
         sink: Sender<Vec<f32>>,
         stop: Arc<AtomicBool>,
         progress: &PlaybackProgress,
-    ) -> Result<()> {
+        take: &mut Vec<f32>,
+    ) -> Result<bool> {
         let body = serde_json::json!({ "text": text, "voice": voice });
         let mut response = self.post("/tts", &body)?;
+        let mut pacer = (pace != NORMAL_PACE).then(|| Pacer::new(super::SAMPLE_RATE, pace));
+        // Compte AVANT l'envoi : une fois parti, le morceau ne nous appartient plus. Et compte
+        // ce qui SORT de l'etireur, pas ce qui y entre : c'est ce que le haut-parleur jouera.
+        let mut deliver = |chunk: Vec<f32>| {
+            progress.add_produced(chunk.len());
+            take.extend_from_slice(&chunk);
+            sink.send(chunk).is_ok()
+        };
 
         let mut raw = [0u8; CHUNK];
         // Un morceau du reseau ne tombe pas sur une frontiere de flottant : ce qui depasse
@@ -80,11 +102,14 @@ impl Engine {
         let mut spare: Vec<u8> = Vec::new();
         loop {
             if stop.load(Ordering::Relaxed) {
-                return Ok(());
+                return Ok(false);
             }
             let read = response.read(&mut raw).context("lecture du flux audio")?;
             if read == 0 {
-                return Ok(());
+                if let Some(tail) = pacer.as_mut().map(Pacer::finish) {
+                    deliver(tail);
+                }
+                return Ok(true);
             }
             spare.extend_from_slice(&raw[..read]);
             let whole = spare.len() - spare.len() % 4;
@@ -96,11 +121,13 @@ impl Engine {
                 .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
                 .collect();
             spare.drain(..whole);
-            // Compte AVANT l'envoi : une fois parti, le morceau ne nous appartient plus.
-            progress.add_produced(chunk.len());
+            let chunk = match pacer.as_mut() {
+                Some(pacer) => pacer.push(&chunk),
+                None => chunk,
+            };
             // Le destinataire est parti : la replique n'interesse plus personne.
-            if sink.send(chunk).is_err() {
-                return Ok(());
+            if !deliver(chunk) {
+                return Ok(false);
             }
         }
     }

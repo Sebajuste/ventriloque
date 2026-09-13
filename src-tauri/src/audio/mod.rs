@@ -13,8 +13,10 @@ mod devices;
 mod output;
 mod progress;
 mod stream;
+mod takes;
 
 pub use devices::{default_device, device_names};
 pub use output::{Output, OutputCommand};
 pub use progress::PlaybackProgress;
 pub use stream::{SpeechChannel, speech_channel};
+pub use takes::{Said, Takes};

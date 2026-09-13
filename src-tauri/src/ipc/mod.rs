@@ -13,12 +13,14 @@ mod characters;
 mod packs;
 mod snapshot;
 mod speech;
+mod tuning;
 mod voices;
 
 pub fn contract() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new().commands(tauri_specta::collect_commands![
         snapshot::snapshot,
         speech::speak,
+        speech::replay,
         speech::silence,
         speech::speech_progress,
         speech::pause,
@@ -32,7 +34,9 @@ pub fn contract() -> tauri_specta::Builder<tauri::Wry> {
         packs::install_pack,
         packs::build_pack,
         packs::uninstall_pack,
-        packs::pack_progress
+        packs::pack_progress,
+        tuning::engine_settings,
+        tuning::apply_engine_settings
     ])
 }
 

@@ -28,6 +28,13 @@ pub struct Manifest {
     /// CascLib, qui dit « s2 » pour le meme jeu.
     #[serde(default)]
     pub product: String,
+    /// Le fichier dont la presence signe l'installation, pour les jeux qui ne portent pas de
+    /// `.build.info` : « bin/x64/Cyberpunk2077.exe ». Chemin RELATIF au dossier du jeu.
+    ///
+    /// C'est le paquet qui l'apporte, pas l'application : une recette pour un nouveau jeu ne
+    /// demande donc aucune modification du code.
+    #[serde(default)]
+    pub marker: String,
     /// Rempli a l'installation, pas par l'auteur du paquet.
     #[serde(default)]
     pub files: Vec<String>,

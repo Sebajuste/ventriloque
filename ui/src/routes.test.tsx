@@ -17,8 +17,15 @@ import { MemoryRouter, useNavigate } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppRoutes } from "./routes";
-import { forgeVoice, pickAudioFiles, readSnapshot, selectDevice, writeCharacter } from "./ipc";
-import { aCharacter, aVoice, snapshotOf } from "./test/fixtures";
+import {
+  engineSettings,
+  forgeVoice,
+  pickAudioFiles,
+  readSnapshot,
+  selectDevice,
+  writeCharacter,
+} from "./ipc";
+import { aCharacter, aVoice, snapshotOf, tuningOf } from "./test/fixtures";
 
 vi.mock("./ipc", async (original) => ({
   ...(await original<typeof import("./ipc")>()),
@@ -32,6 +39,8 @@ vi.mock("./ipc", async (original) => ({
   writeCharacter: vi.fn(),
   deleteCharacter: vi.fn(),
   installPack: vi.fn(),
+  engineSettings: vi.fn(),
+  applyEngineSettings: vi.fn(),
 }));
 
 /** Donne au test la main sur l'historique du routeur monte, sans en construire un deuxieme. */
@@ -58,6 +67,8 @@ const markers = {
   // Par le texte : ce bouton vit dans un `<label>`, qui lui vole son nom accessible.
   workshop: () => screen.queryByText("Choisir des fichiers…"),
   packs: () => screen.queryByRole("button", { name: "Installer un paquet…" }),
+  // Par le texte : les curseurs n'apparaissent qu'une fois les reglages lus.
+  settings: () => screen.queryByText(/ne lit ces réglages qu'à son lancement/),
 };
 
 const mounted = () =>
@@ -70,6 +81,7 @@ beforeEach(() => {
   vi.mocked(selectDevice).mockReset().mockResolvedValue(undefined);
   vi.mocked(pickAudioFiles).mockReset().mockResolvedValue([]);
   vi.mocked(forgeVoice).mockReset().mockResolvedValue("barman.wav");
+  vi.mocked(engineSettings).mockReset().mockResolvedValue(tuningOf());
 });
 
 describe("demarrage", () => {
@@ -119,9 +131,9 @@ describe("routes", () => {
     mount();
     await waitFor(() => expect(readSnapshot).toHaveBeenCalled());
 
-    for (const name of ["Atelier", "Packs", "Fiches", "Player", "Packs"]) {
+    for (const name of ["Atelier", "Packs", "Réglages", "Fiches", "Player", "Packs"]) {
       await userEvent.click(tab(name));
-      expect(mounted()).toHaveLength(1);
+      await waitFor(() => expect(mounted()).toHaveLength(1));
     }
   });
 

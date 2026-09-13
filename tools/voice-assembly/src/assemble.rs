@@ -42,6 +42,33 @@ pub struct Assembled {
     pub kept: Vec<String>,
 }
 
+/// Pourquoi rien n'a ete retenu, dit assez precisement pour savoir ou chercher.
+///
+/// Separee du montage parce que c'est la seule chose qu'on veuille eprouver ici : fabriquer un
+/// Ogg de test demanderait un encodeur que ce binaire n'embarque pas -- il ne sait que decoder.
+fn nothing_kept(
+    settings: &Settings,
+    unreadable: usize,
+    first_error: &str,
+    out_of_window: &[f32],
+) -> String {
+    let mut why = Vec::new();
+    if unreadable > 0 {
+        why.push(format!("{unreadable} illisible(s) — {first_error}"));
+    }
+    if !out_of_window.is_empty() {
+        // Les durees reelles disent tout de suite s'il faut desserrer la fenetre, et de combien.
+        let said: Vec<String> = out_of_window.iter().map(|d| format!("{d:.1}s")).collect();
+        why.push(format!("{} hors fenetre ({})", out_of_window.len(), said.join(", ")));
+    }
+    format!(
+        "aucune prise entre {} et {} secondes : {}",
+        settings.min_secs,
+        settings.max_secs,
+        why.join(" ; ")
+    )
+}
+
 /// Decode les sources, choisit, assemble et ecrit la reference en WAV mono 16 bits.
 pub fn assemble(
     sources: Vec<(String, Vec<u8>)>,
@@ -50,6 +77,12 @@ pub fn assemble(
 ) -> Result<Assembled, String> {
     let mut takes = Vec::new();
     let mut rejected = 0usize;
+    // DEUX RAISONS D'ECARTER, ET IL FAUT LES DISTINGUER. « Sept ecartees » ne dit pas si le son
+    // n'a pas pu etre lu ou s'il tombait hors de la fenetre : le premier est une panne a
+    // corriger, le second un reglage a desserrer. Sans la difference, on cherche du mauvais cote.
+    let mut unreadable = 0usize;
+    let mut first_error = String::new();
+    let mut out_of_window: Vec<f32> = Vec::new();
     for (name, data) in sources {
         match decode(&name, data) {
             Ok(take) => {
@@ -57,17 +90,21 @@ pub fn assemble(
                 if seconds >= settings.min_secs && seconds <= settings.max_secs {
                     takes.push(take);
                 } else {
+                    out_of_window.push(seconds);
                     rejected += 1;
                 }
             }
-            Err(_) => rejected += 1,
+            Err(message) => {
+                unreadable += 1;
+                rejected += 1;
+                if first_error.is_empty() {
+                    first_error = format!("{name} : {message}");
+                }
+            }
         }
     }
     if takes.is_empty() {
-        return Err(format!(
-            "aucune prise entre {} et {} secondes ({rejected} ecartees)",
-            settings.min_secs, settings.max_secs
-        ));
+        return Err(nothing_kept(settings, unreadable, &first_error, &out_of_window));
     }
 
     // Melanger deux frequences dans un meme WAV ferait un montage a vitesses differentes : on
@@ -201,7 +238,31 @@ mod tests {
         .unwrap_err();
 
         assert!(e.contains("aucune prise"), "{e}");
-        assert!(e.contains("1 ecartees"), "{e}");
+        // Le compte NE SUFFIT PAS : le message doit dire que la prise etait illisible, et
+        // laquelle, sinon on cherche la panne du mauvais cote.
+        assert!(e.contains("1 illisible"), "{e}");
+        assert!(e.contains("a.ogg"), "{e}");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // L'autre moitie du diagnostic : une prise lisible mais hors fenetre doit etre annoncee avec
+    // sa duree, pour qu'on sache de combien desserrer -- et sans parler d'illisibilite.
+    #[test]
+    fn une_prise_hors_fenetre_est_annoncee_avec_sa_duree() {
+        let message = nothing_kept(&Settings::default(), 0, "", &[1.2, 11.5]);
+
+        assert!(message.contains("2 hors fenetre"), "{message}");
+        assert!(message.contains("1.2s, 11.5s"), "{message}");
+        assert!(!message.contains("illisible"), "{message}");
+    }
+
+    // Les deux causes peuvent se presenter ensemble : le message doit porter les deux.
+    #[test]
+    fn les_deux_causes_se_disent_ensemble() {
+        let message = nothing_kept(&Settings::default(), 1, "x.wem : format inconnu", &[0.4]);
+
+        assert!(message.contains("1 illisible"), "{message}");
+        assert!(message.contains("x.wem : format inconnu"), "{message}");
+        assert!(message.contains("1 hors fenetre (0.4s)"), "{message}");
     }
 }

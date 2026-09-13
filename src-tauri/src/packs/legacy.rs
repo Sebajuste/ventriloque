@@ -46,6 +46,7 @@ impl From<LegacyManifest> for Manifest {
             recipe: old.recette,
             game: old.jeu,
             product: old.produit,
+            marker: String::new(),
             files: old.fichiers,
             installed_on: old.installe_le,
             built_on: old.fabrique_le,
@@ -58,10 +59,10 @@ impl From<LegacyManifest> for Manifest {
 /// L'ORDRE COMPTE : le format d'aujourd'hui d'abord. Un manifeste recent n'a pas de champ `nom`,
 /// donc l'ancien format le lirait en un paquet sans nom plutot que d'echouer.
 pub fn parse(text: &str) -> Option<Manifest> {
-    if let Ok(manifest) = serde_json::from_str::<Manifest>(text) {
-        if !manifest.name.trim().is_empty() {
-            return Some(manifest);
-        }
+    if let Ok(manifest) = serde_json::from_str::<Manifest>(text)
+        && !manifest.name.trim().is_empty()
+    {
+        return Some(manifest);
     }
     serde_json::from_str::<LegacyManifest>(text)
         .ok()

@@ -36,8 +36,7 @@ pub fn product_at(folder: &Path) -> Option<String> {
 mod tests {
     use crate::testing::TempDir;
 
-    const SC2: &str =
-        "Branch!STRING:0|CDN Path!STRING:0|Product!STRING:0\nfr_FR|tpr/sc2|\n";
+    const SC2: &str = "Branch!STRING:0|CDN Path!STRING:0|Product!STRING:0\nfr_FR|tpr/sc2|\n";
 
     fn folder_with(content: Option<&str>) -> TempDir {
         let dir = TempDir::new("build-info");

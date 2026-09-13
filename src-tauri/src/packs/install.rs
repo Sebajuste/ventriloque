@@ -22,8 +22,7 @@ const COPY_BUFFER: usize = 64 * 1024;
 pub fn install(root: &Path, zip: &Path, job: &Job) -> Result<Manifest> {
     let file =
         std::fs::File::open(zip).with_context(|| format!("ouverture de {}", zip.display()))?;
-    let mut archive =
-        zip::ZipArchive::new(file).context("ce fichier n'est pas un zip lisible")?;
+    let mut archive = zip::ZipArchive::new(file).context("ce fichier n'est pas un zip lisible")?;
 
     let mut manifest = read_manifest(&mut archive)?;
     let mut placed = Vec::new();
@@ -123,8 +122,7 @@ fn read_manifest<R: Read + std::io::Seek>(archive: &mut zip::ZipArchive<R>) -> R
     entry.read_to_string(&mut text).context("lecture de pack.json")?;
     // `legacy::parse` refuse deja ce qui ne nomme personne : les deux causes se disent d'une
     // seule phrase, parce qu'elles se reparent de la meme facon -- ouvrir le pack.json.
-    legacy::parse(&text)
-        .ok_or_else(|| anyhow!("pack.json est mal forme ou ne nomme pas le paquet"))
+    legacy::parse(&text).ok_or_else(|| anyhow!("pack.json est mal forme ou ne nomme pas le paquet"))
 }
 
 #[cfg(test)]
