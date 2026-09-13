@@ -56,6 +56,16 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix ui
 
+      # LE FABRICANT AVANT TOUTE COMMANDE CARGO SUR `src-tauri`, et c'est structurel :
+      # `embedded.rs` l'avale par `include_bytes!`, et `src-tauri/binaries/pack-builder.exe`
+      # n'est pas versionne -- il se rebatit a chaque compilation. Sans lui, clippy s'arrete
+      # sur « couldn't read ../binaries/pack-builder.exe » avant d'avoir regarde une ligne de
+      # code. C'est l'ordre qu'impose `tools/prepare.ps1`, pour la meme raison.
+      - run: cargo build --release --manifest-path tools/pack-builder/Cargo.toml
+
+      - shell: bash
+        run: cp tools/target/release/pack-builder.exe src-tauri/binaries/pack-builder.exe
+
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
       # `--all-targets` couvre aussi les tests : du code mort y passe inapercu sinon.
@@ -79,9 +89,7 @@ jobs:
       # `tsc --noEmit`, puis vitest, puis vite : voir le script `build` de `ui/package.json`.
       - run: npm --prefix ui run build
 
-      # Le fabricant, avec CascLib et le moteur de script. Il n'entre dans l'executable qu'a la
-      # compilation de la release ; sans ce controle, une rupture ici ne se decouvrirait qu'au
-      # moment de publier.
-      - run: cargo check --manifest-path tools/Cargo.toml --workspace --all-targets
-
+      # Le reste des outils. `pack-builder` est deja compile plus haut ; ceci couvre les deux
+      # autres caisses de l'espace de travail et leurs tests, qui n'entrent dans aucun binaire
+      # livre et ne seraient donc jamais compiles autrement.
       - run: cargo test --manifest-path tools/Cargo.toml --workspace
