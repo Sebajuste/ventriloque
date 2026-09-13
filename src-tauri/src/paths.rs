@@ -21,8 +21,13 @@ pub const ENGINE: &str = "engine";
 /// Le dossier de travail jetable d'une fabrication.
 pub const WORK: &str = ".build";
 
-/// Le fichier qui marque la racine des donnees.
+/// Le fichier qui marque la racine des donnees. IL NE PORTE QUE CE QUI EST A L'UTILISATEUR --
+/// voir `TUNING` pour ce que l'application ecrit, et `settings` pour pourquoi les deux sont
+/// separes.
 pub const MARKER: &str = "ventriloque.json";
+
+/// Les reglages du moteur, ecrits par l'application a chaque « Appliquer ».
+pub const TUNING: &str = "tuning.json";
 
 /// Les seuls dossiers qu'un paquet a le droit de remplir.
 pub const PACK_DIRS: [&str; 4] = [VOICES, CHARACTERS, MODELS, RECIPES];

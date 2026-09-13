@@ -16,6 +16,11 @@ tools/extract-casc/*.exe
 src-tauri/binaries/pack-builder.exe
 tools/__pycache__/
 
+# Les reglages du moteur, ecrits par l'application a chaque "Appliquer". Ils vivaient sous une
+# cle de ventriloque.json, qui est versionne : regler une temperature en seance faisait alors
+# apparaitre le depot comme modifie, et le reglage d'un poste partait dans un commit.
+/tuning.json
+
 # Les recettes INSTALLEES, posees la par un paquet. Les sources sont dans `tools/recipes/`.
 /recipes/
 

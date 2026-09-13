@@ -1,6 +1,6 @@
 // Le processus du moteur : le lancer, l'attendre, et le tuer quoi qu'il arrive.
 //
-// LES REGLAGES DU SON VIENNENT DE `ventriloque.json`, et leurs valeurs d'origine reproduisent la
+// LES REGLAGES DU SON VIENNENT DE `tuning.json`, et leurs valeurs d'origine reproduisent la
 // configuration validee en jeu par le mod ai_npc (`ptt_create(..., "int8", 0.7f, 1, 0)` suivi de
 // `ptt_set_eos_extra`) -- voir `settings::EngineSettings`. La precision, elle, reste fixe : le
 // paquet de modeles ne livre que les poids `int8`.
