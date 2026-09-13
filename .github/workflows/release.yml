@@ -1,0 +1,109 @@
+# Publication d'une release, de son installateur et de son paquet de mise a jour.
+#
+# LE DECLENCHEUR N'EST PAS LE COMMIT MAIS LE NUMERO DE VERSION de `tauri.conf.json`. Publier a
+# chaque poussee sur `master` reviendrait a compiler le Rust pour une correction de typo, et a
+# notifier une mise a jour a tout le monde pour la meme. Bumper la version *est* l'acte de
+# publication ; le reste du temps ce workflow s'arrete au premier job.
+name: release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Les tags sont le registre de ce qui a deja ete publie : sans eux, la comparaison
+          # ci-dessous croirait toujours avoir affaire a du neuf.
+          fetch-depth: 0
+
+      - id: v
+        shell: bash
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "v$version deja publiee, rien a faire"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$version a publier"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: check
+    if: needs.check.outputs.publish == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          # Deux manifestes : celui de la racine porte la CLI Tauri, celui de `ui` l'interface.
+          # Sans les deux, le cache se croit a jour apres un changement dans l'autre.
+          cache-dependency-path: |
+            package-lock.json
+            ui/package-lock.json
+
+      - run: rustup install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri
+            tools
+
+      # CascLib et ww2ogg sont des depots tiers que le fabricant compile sur place. Ils ne sont
+      # pas versionnes ici -- la seule `listfile` de CascLib pese 91 Mo -- donc son `build.rs`
+      # les exige et s'arrete avec la marche a suivre s'ils manquent. C'est cette marche a suivre.
+      - name: CascLib et ww2ogg
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/ladislav-zezula/CascLib.git tools/pack-builder/vendor/CascLib
+          git clone --depth 1 https://github.com/hcs64/ww2ogg.git tools/pack-builder/vendor/ww2ogg
+
+      - run: npm ci
+      - run: npm ci --prefix ui
+
+      # LE FABRICANT D'ABORD, parce que `embedded.rs` l'avale par `include_bytes!` : compile
+      # apres, l'executable emporterait celui d'avant SANS RIEN SIGNALER. `tools/prepare.ps1`,
+      # que `tauri build` appelle ensuite, le refait -- et c'est tres bien : un fabricant deja
+      # a jour se recompile en quelques secondes.
+      - run: cargo build --release --manifest-path tools/pack-builder/Cargo.toml
+
+      - shell: bash
+        run: cp tools/target/release/pack-builder.exe src-tauri/binaries/pack-builder.exe
+
+      # Une release qui echoue ses tests n'a rien a faire chez les utilisateurs, et
+      # l'auto-mise a jour la leur poserait d'office.
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signature du PAQUET DE MISE A JOUR, sans rapport avec la signature Authenticode du
+          # binaire : celle-ci authentifie la mise a jour aupres des installations existantes,
+          # l'autre authentifierait l'editeur aupres de Windows. La cle publique correspondante
+          # est dans `tauri.conf.json` ; sans elle, l'application refuse le paquet.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: Ventriloque v__VERSION__
+          releaseDraft: false
+          prerelease: false
+          # Produit `latest.json` a cote de l'installateur : c'est le fichier que les
+          # installations existantes interrogent, et l'adresse inscrite dans `tauri.conf.json`.
+          includeUpdaterJson: true

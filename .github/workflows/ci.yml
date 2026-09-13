@@ -1,0 +1,87 @@
+# Garde-fou sur les branches de travail.
+#
+# Sans lui, rien ne verifie ce qu'on pousse : les tests ne tourneraient qu'au moment de publier,
+# et une regression se decouvrirait pendant une release plutot qu'avant.
+#
+# WINDOWS ET PAS AUTRE CHOSE. Ventriloque lit le registre, interroge Battle.net et pilote un
+# moteur `.exe` : il n'y a rien a verifier ailleurs.
+name: ci
+
+on:
+  # Toutes les branches SAUF `master`, qui est celle des releases : ce qui y arrive est deja
+  # passe par ici, et `release.yml` le reverifie avant de publier.
+  push:
+    branches-ignore: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          # Deux manifestes : celui de la racine porte la CLI Tauri, celui de `ui` l'interface.
+          # Sans les deux, le cache se croit a jour apres un changement dans l'autre.
+          cache-dependency-path: |
+            package-lock.json
+            ui/package-lock.json
+
+      # Pas d'action de toolchain : `rust-toolchain.toml` fait foi, et `rustup install` sans
+      # argument installe la version qu'il designe.
+      - run: rustup install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # Deux espaces de travail separes, et c'est voulu : l'application ne partage aucune
+          # dependance avec les outils. Les nommer tous les deux evite de recompiler CascLib a
+          # chaque execution.
+          workspaces: |
+            src-tauri
+            tools
+
+      # CascLib et ww2ogg sont des depots tiers que le fabricant compile sur place. Ils ne sont
+      # pas versionnes ici -- la seule `listfile` de CascLib pese 91 Mo -- donc son `build.rs`
+      # les exige et s'arrete avec la marche a suivre s'ils manquent. C'est cette marche a suivre.
+      - name: CascLib et ww2ogg
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/ladislav-zezula/CascLib.git tools/pack-builder/vendor/CascLib
+          git clone --depth 1 https://github.com/hcs64/ww2ogg.git tools/pack-builder/vendor/ww2ogg
+
+      - run: npm ci
+      - run: npm ci --prefix ui
+
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      # `--all-targets` couvre aussi les tests : du code mort y passe inapercu sinon.
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      # Ecrit aussi `ui/src/ipc/bindings.ts` -- c'est le test `bindings` de `ipc/mod.rs`.
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      # LE CONTRAT NE DOIT PAS AVOIR BOUGE. Le fichier est versionne et regenere par le test
+      # ci-dessus : s'il differe maintenant, c'est qu'une commande Rust a change sans que le
+      # lien vers l'interface soit regenere et relu. L'interface d'ici compilerait contre la
+      # bonne version, et celle du depot casserait en seance.
+      - name: le lien rust vers l'interface est a jour
+        shell: bash
+        run: |
+          if ! git diff --exit-code -- ui/src/ipc/bindings.ts; then
+            echo "::error::une commande Rust a change sans que ui/src/ipc/bindings.ts soit regenere. Relance cargo test --manifest-path src-tauri/Cargo.toml bindings, relis le diff, et commite-le."
+            exit 1
+          fi
+
+      # `tsc --noEmit`, puis vitest, puis vite : voir le script `build` de `ui/package.json`.
+      - run: npm --prefix ui run build
+
+      # Le fabricant, avec CascLib et le moteur de script. Il n'entre dans l'executable qu'a la
+      # compilation de la release ; sans ce controle, une rupture ici ne se decouvrirait qu'au
+      # moment de publier.
+      - run: cargo check --manifest-path tools/Cargo.toml --workspace --all-targets
+
+      - run: cargo test --manifest-path tools/Cargo.toml --workspace

@@ -30,6 +30,10 @@ export const commands = {
 	engineSettings: () => __TAURI_INVOKE<EngineTuning>("engine_settings"),
 	/**  Rend les reglages tels qu'ils ont ete ecrits -- ramenes dans leurs bornes si besoin. */
 	applyEngineSettings: (settings: EngineSettings) => typedError<EngineSettings, string>(__TAURI_INVOKE("apply_engine_settings", { settings })),
+	checkUpdate: () => typedError<UpdateFound, string>(__TAURI_INVOKE("check_update")),
+	/**  Ne rend jamais la main quand elle reussit : l'application est relancee. */
+	installUpdate: () => typedError<null, string>(__TAURI_INVOKE("install_update")),
+	updateProgress: () => __TAURI_INVOKE<UpdateProgress>("update_progress"),
 };
 
 /* Types */
@@ -153,6 +157,23 @@ export type SpeechProgress = {
 	complete: boolean,
 	/**  Au moins un echantillon de la replique est passe. Avant, la voix se prepare. */
 	audible: boolean,
+};
+
+/**
+ *  Ce que la recherche a trouve. `version` vide veut dire « rien de neuf » : c'est un retour
+ *  plus simple a lire pour la fenetre qu'un `Option` de plus a demeler.
+ */
+export type UpdateFound = {
+	version: string,
+	current: string,
+	/**  Les notes de publication de la release, telles quelles. Vide si elle n'en porte pas. */
+	notes: string,
+};
+
+export type UpdateProgress = {
+	active: boolean,
+	downloaded: number,
+	total: number,
 };
 
 export type Voice = {

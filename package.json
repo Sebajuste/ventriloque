@@ -2,6 +2,7 @@
   "name": "ventriloque",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Un atelier qui clone des voix de PNJ, un player qui les joue en seance.",
   "scripts": {
     "dev": "tauri dev",

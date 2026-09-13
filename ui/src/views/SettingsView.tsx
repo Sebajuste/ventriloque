@@ -13,6 +13,7 @@ import {
   type EngineSettings,
   type EngineTuning,
 } from "../ipc";
+import UpdateSection from "./settings/UpdateSection";
 
 interface Props {
   reload: () => Promise<void>;
@@ -192,6 +193,8 @@ export default function SettingsView({ reload }: Props) {
           <span className={failed ? "message failed" : "message"}>{message}</span>
         </div>
       </section>
+
+      <UpdateSection />
     </main>
   );
 }

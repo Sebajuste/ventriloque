@@ -15,7 +15,13 @@ import type {
   VoiceKind,
 } from "./bindings";
 
-export type { PackProgress, SpeechProgress, VoiceKind } from "./bindings";
+export type {
+  PackProgress,
+  SpeechProgress,
+  UpdateFound,
+  UpdateProgress,
+  VoiceKind,
+} from "./bindings";
 
 /**
  * Rend obligatoire ce que `bindings.ts` declare facultatif, en profondeur.

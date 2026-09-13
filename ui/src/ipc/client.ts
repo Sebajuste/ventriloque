@@ -148,3 +148,29 @@ export const uninstallPack = (pack: string) => unwrap(commands.uninstallPack(pac
  */
 export const buildPack = (pack: string, chooseFolder = false) =>
   unwrap(commands.buildPack(pack, chooseFolder));
+
+// ── La mise à jour ──────────────────────────────────────────────────────────
+
+/**
+ * Interroge la dernière release publiée. `version` vide veut dire qu'il n'y a rien de neuf.
+ *
+ * Coûte un aller-retour réseau, et peut mettre plusieurs secondes à échouer hors ligne : c'est
+ * la vue qui la déclenche, jamais le démarrage.
+ */
+export const checkUpdate = () => unwrap(commands.checkUpdate());
+
+/**
+ * Télécharge, installe, relance. NE SE RÉSOUT PAS quand elle réussit : l'application est
+ * remplacée et redémarrée sous la fenêtre de l'appelant.
+ *
+ * Le moteur de parole est coupé avant l'installateur — une réplique en cours s'arrête net.
+ */
+export const installUpdate = async (): Promise<void> => {
+  await unwrap(commands.installUpdate());
+};
+
+/**
+ * Où en est le téléchargement. Même battement que les paquets : `total` à zéro veut dire « en
+ * cours, sans taille annoncée » par le serveur.
+ */
+export const updateProgress = () => commands.updateProgress();

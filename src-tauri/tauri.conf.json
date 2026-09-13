@@ -24,12 +24,32 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis"
+    ],
     "externalBin": [
       "binaries/pocket-tts"
     ],
     "resources": [
       "binaries/onnxruntime.dll"
-    ]
+    ],
+    "publisher": "Sebajuste",
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIyNTg4RjJENTAyQjQxOTIKUldTU1FTdFFMWTlZSW5GcFJsZ0FNSUJwaXA1TEtvWDh3TncyU1lGZk95NnJCY0c5SEdIeSs4aEIK",
+      "endpoints": [
+        "https://github.com/Sebajuste/ventriloque/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

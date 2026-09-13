@@ -2,6 +2,7 @@
 name = "ventriloque"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.104"
@@ -14,6 +15,7 @@ specta = "2.0.0-rc"
 specta-typescript = "0.0.12"
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2.7.3"
+tauri-plugin-updater = "2"
 tauri-specta = { version = "2.0.0-rc", features = ["typescript"] }
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_Security", "Win32_System_Registry"] }
 zip = "8.6.0"

@@ -1,0 +1,15 @@
+# Version unique pour le poste de developpement, la CI et la release.
+#
+# Sans elle, `stable` designe une version differente selon le jour et la machine : une regle
+# clippy apparue entre-temps fait rougir l'integration sur du code que personne n'a touche, et le
+# binaire publie n'est pas reproductible.
+#
+# Contrepartie assumee : les nouvelles regles n'arrivent qu'au bump, qui est un geste explicite.
+# rustup installe la version indiquee tout seul, a la premiere commande cargo.
+#
+# C'est la version sur laquelle `cargo fmt --check` et `cargo clippy -D warnings` ont ete mis au
+# vert. En changer sans les relancer, c'est decouvrir la difference dans l'integration.
+[toolchain]
+channel = "1.96.1"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

@@ -14,6 +14,7 @@ mod packs;
 mod snapshot;
 mod speech;
 mod tuning;
+mod update;
 mod voices;
 
 pub fn contract() -> tauri_specta::Builder<tauri::Wry> {
@@ -36,7 +37,10 @@ pub fn contract() -> tauri_specta::Builder<tauri::Wry> {
         packs::uninstall_pack,
         packs::pack_progress,
         tuning::engine_settings,
-        tuning::apply_engine_settings
+        tuning::apply_engine_settings,
+        update::check_update,
+        update::install_update,
+        update::update_progress
     ])
 }
 

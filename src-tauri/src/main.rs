@@ -18,6 +18,7 @@ mod migration;
 mod packs;
 mod paths;
 mod settings;
+mod update;
 mod voice;
 
 #[cfg(test)]
@@ -31,10 +32,12 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|handle| {
             let state = AppState::new();
             state.start_engine();
             handle.manage(state);
+            handle.manage(update::Updates::default());
             Ok(())
         })
         .invoke_handler(contract.invoke_handler())
